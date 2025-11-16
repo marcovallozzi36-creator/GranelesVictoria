@@ -515,15 +515,15 @@
       <div class="login-pill">🛢️</div>
       Control de Graneles – Login
     </div>
-    <div class="login-sub">Ingresá con tu <strong>email y contraseña</strong> de Firebase.</div>
-    <label for="login-user">Email</label>
+    <div class="login-sub">Ingresá con tu usuario para manejar los graneles de Victoria.</div>
+    <label for="login-user">Usuario</label>
     <input id="login-user" autocomplete="username" />
     <label for="login-pass">Contraseña</label>
     <input id="login-pass" type="password" autocomplete="current-password" />
     <button class="login-btn" id="login-btn">Entrar</button>
     <div id="login-error" class="login-error"></div>
     <div class="login-hint">
-      Los usuarios se crean en Firebase Authentication (panel web).
+      Demo: <strong>pcp / pcp123</strong>, <strong>deposito / dep123</strong>, <strong>produccion / prod123</strong>.
     </div>
   </div>
 </div>
@@ -544,7 +544,7 @@
         <span id="user-name">–</span>
       </span>
       <div id="clock">--/--/---- --:--</div>
-      <span class="tag-mini">Datos: Firebase + copia local</span>
+      <span class="tag-mini">Datos guardados en Firebase + este navegador</span>
     </div>
   </header>
 
@@ -586,7 +586,6 @@
             <strong>“Grupo almacén”</strong>.
           </span>
         </div>
-
         <div class="layout-2col">
           <div class="card" id="card-dashboard-main">
             <div class="card-header">
@@ -997,7 +996,7 @@
           <div class="card-header">
             <div class="card-title">
               🧱 Materias primas
-              <small>Se guardan en Firestore (con copia local)</small>
+              <small>Se guardan en Firebase + localStorage</small>
             </div>
             <button id="btn-add-material" class="btn secondary" type="button">➕ Agregar MP</button>
           </div>
@@ -1034,76 +1033,107 @@
     </section>
   </main>
 </div>
+
+<!-- 🔥 LÓGICA + FIREBASE -->
 <script type="module">
-  // ==== IMPORTS & FIREBASE ====
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-  import { 
-    getFirestore,
-    doc,
-    getDoc,
-    setDoc,
-    serverTimestamp
-  } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
-  import {
-    getAuth,
-    signInWithEmailAndPassword,
-    onAuthStateChanged,
-    signOut
-  } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+  /* ================= FIREBASE (SIN AUTH) ================= */
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+  import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
 
   const firebaseConfig = {
-    apiKey: "AIzaSyCLDJFTD7TcMclhUH9unWM_x93FYAlDcM2I",
+    apiKey: "AIzaSyClDJTfD7tMClhUH9unWW_x93FYAIDcM2I",
     authDomain: "finanzas-4-0.firebaseapp.com",
     projectId: "finanzas-4-0",
-    storageBucket: "finanzas-4-0.appspot.com",
+    storageBucket: "finanzas-4-0.firebasestorage.app",
     messagingSenderId: "740934543720",
-    appId: "1:740934543720:web:a043e97acedbe3adcbfda0"
+    appId: "1:740934543720:web:b51c2d488c048a6b0fcedd"
   };
 
-  const fbApp = initializeApp(firebaseConfig);
-  const db = getFirestore(fbApp);
-  const auth = getAuth(fbApp);
-
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
   const FIRESTORE_COLLECTION = "controlGranelesVictoria";
-  const FIRESTORE_DOC_ID = "estadoGeneral";
+  const FIRESTORE_DOC_ID = "estado-unico";
 
+  let firestoreSaveTimeout = null;
+
+  async function saveStateToFirestoreDebounced(stateObj){
+    if(!db) return;
+    if(firestoreSaveTimeout) clearTimeout(firestoreSaveTimeout);
+    firestoreSaveTimeout = setTimeout(async ()=>{
+      try{
+        await setDoc(doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID), stateObj);
+        // console.log("Estado guardado en Firestore");
+      }catch(e){
+        console.error("Error guardando en Firestore", e);
+      }
+    }, 800);
+  }
+
+  async function loadStateFromFirestoreAndApply(){
+    try{
+      const ref = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
+      const snap = await getDoc(ref);
+      if(!snap.exists()) return;
+      const remote = normalizeStateObj(snap.data());
+      state = remote;
+      // También lo dejo en localStorage para cargar rápido la próxima vez
+      saveState(true); // true = no volver a sincronizar inmediatamente
+      // Re-render con datos de Firebase
+      initMaterialSelects();
+      renderConfigTable();
+      recomputeIngresosFromSolicitudes();
+      renderDashboard();
+      renderMovimientosTable();
+      renderSolicitudesTable();
+      renderProveedores();
+    }catch(e){
+      console.error("Error leyendo desde Firestore", e);
+    }
+  }
+
+  /* ================= LOGIN SIMPLE ================= */
+  const USERS = [
+    { username:"pcp",        password:"pcp123",   nombre:"PCP – Planificación" },
+    { username:"deposito",   password:"dep123",   nombre:"Depósito Victoria" },
+    { username:"produccion", password:"prod123",  nombre:"Producción Planta" }
+  ];
   let currentUser = null;
+
   let editingProveedorId = null;
   let editingSolicitudId = null;
   let editingMovimientoKey = null; // "materialId|fecha"
 
-  async function backupStateToFirebase(stateToSave){
-    if(!currentUser) return; // solo si hay usuario logueado
-    try{
-      await setDoc(
-        doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID),
-        {
-          state: stateToSave,
-          updatedAt: serverTimestamp(),
-          lastUser: {
-            uid: currentUser.uid,
-            email: currentUser.email || null
-          }
-        },
-        { merge:true }
-      );
-      console.log("✅ Estado guardado en Firebase");
-    }catch(e){
-      console.error("Error guardando en Firebase", e);
-    }
-  }
-
   function setUser(user){
     currentUser = user;
     if(user){
-      const nameEl = document.getElementById("user-name");
-      nameEl.textContent = user.email || "(sin email)";
+      try{
+        localStorage.setItem("controlGranelesUsuario", JSON.stringify(user));
+      }catch(e){}
+      document.getElementById("user-name").textContent = user.nombre + " ("+user.username+")";
       document.getElementById("app-shell").style.display = "block";
       document.getElementById("login-screen").style.display = "none";
     }else{
+      try{
+        localStorage.removeItem("controlGranelesUsuario");
+      }catch(e){}
       document.getElementById("app-shell").style.display = "none";
       document.getElementById("login-screen").style.display = "flex";
     }
+  }
+
+  function tryAutoLogin(){
+    try{
+      const raw = localStorage.getItem("controlGranelesUsuario");
+      if(!raw) return;
+      const saved = JSON.parse(raw);
+      if(!saved || !saved.username) return;
+      for(let i=0;i<USERS.length;i++){
+        if(USERS[i].username === saved.username){
+          setUser(USERS[i]);
+          return;
+        }
+      }
+    }catch(e){}
   }
 
   function setupLoginUI(){
@@ -1112,25 +1142,23 @@
     const btn = document.getElementById("login-btn");
     const errorEl = document.getElementById("login-error");
 
-    async function doLogin(){
-      const email = userInput.value.trim();
-      const password = passInput.value;
-      if(!email || !password){
-        errorEl.textContent = "Completá email y contraseña.";
+    function doLogin(){
+      const u = userInput.value.trim();
+      const p = passInput.value;
+      let found = null;
+      for(let i=0;i<USERS.length;i++){
+        if(USERS[i].username===u && USERS[i].password===p){
+          found = USERS[i];
+          break;
+        }
+      }
+      if(!found){
+        errorEl.textContent = "Usuario o contraseña incorrectos.";
         return;
       }
-      try{
-        await signInWithEmailAndPassword(auth, email, password);
-        errorEl.textContent = "";
-        // onAuthStateChanged se encarga de seguir el flujo
-      }catch(e){
-        console.error(e);
-        let msg = "Error al iniciar sesión.";
-        if(e.code === "auth/user-not-found") msg = "Usuario no encontrado.";
-        if(e.code === "auth/wrong-password") msg = "Contraseña incorrecta.";
-        if(e.code === "auth/invalid-email") msg = "Email inválido.";
-        errorEl.textContent = msg;
-      }
+      errorEl.textContent = "";
+      setUser(found);
+      initApp();
     }
 
     btn.addEventListener("click", doLogin);
@@ -1139,7 +1167,7 @@
     });
   }
 
-  // ===== UTILIDADES =====
+  // ===== UTILIDADES / ESTADO LOCAL =====
   function deepClone(obj){
     return JSON.parse(JSON.stringify(obj));
   }
@@ -1209,89 +1237,61 @@
     proveedores:[]
   };
 
-  let state = deepClone(defaultState);
-  let stateLoadedFromFirebase = false;
+  let state = loadState(); // arranca con localStorage o defaults
 
-  function loadStateFromLocal(){
+  function normalizeStateObj(parsed){
+    if(!parsed || typeof parsed!=="object") parsed = {};
+    if(!parsed.materiales) parsed.materiales = deepClone(defaultState.materiales);
+    if(!parsed.movimientos) parsed.movimientos = [];
+    if(!parsed.solicitudes) parsed.solicitudes = [];
+    if(!parsed.proveedores) parsed.proveedores = [];
+
+    for(let i=0;i<parsed.materiales.length;i++){
+      const m = parsed.materiales[i];
+      if(m.grupoAlmacen === undefined) m.grupoAlmacen = m.nombre || "";
+      if(m.capacidadGrupo === undefined) m.capacidadGrupo = Number(m.capacidad)||0;
+      if(m.tipo === undefined) m.tipo = m.nombre || "";
+    }
+    for(let j=0;j<parsed.movimientos.length;j++){
+      const mm = parsed.movimientos[j];
+      if(mm.ingresosManual === undefined){
+        const baseIng = Number(mm.ingresos||0);
+        const baseOC = Number(mm.ingresosOC||0);
+        mm.ingresosManual = baseIng - baseOC;
+        if(isNaN(mm.ingresosManual)) mm.ingresosManual = baseIng;
+      }
+      if(mm.ingresosOC === undefined) mm.ingresosOC = 0;
+      mm.ingresos = Number(mm.ingresosManual||0) + Number(mm.ingresosOC||0);
+      if(mm.stockFinal === undefined){
+        mm.stockFinal = Number(mm.stockInicial||0) + mm.ingresos - Number(mm.consumo||0);
+      }
+    }
+    return parsed;
+  }
+
+  function loadState(){
     try{
       const raw = localStorage.getItem(LS_KEY);
       if(!raw){
         return deepClone(defaultState);
       }
       const parsed = JSON.parse(raw);
-      if(!parsed || typeof parsed!=="object") return deepClone(defaultState);
-      if(!parsed.materiales) parsed.materiales = deepClone(defaultState.materiales);
-      if(!parsed.movimientos) parsed.movimientos = [];
-      if(!parsed.solicitudes) parsed.solicitudes = [];
-      if(!parsed.proveedores) parsed.proveedores = [];
-
-      for(let i=0;i<parsed.materiales.length;i++){
-        const m = parsed.materiales[i];
-        if(m.grupoAlmacen === undefined) m.grupoAlmacen = m.nombre || "";
-        if(m.capacidadGrupo === undefined) m.capacidadGrupo = Number(m.capacidad)||0;
-        if(m.tipo === undefined) m.tipo = m.nombre || "";
-      }
-      for(let j=0;j<parsed.movimientos.length;j++){
-        const mm = parsed.movimientos[j];
-        if(mm.ingresosManual === undefined){
-          const baseIng = Number(mm.ingresos||0);
-          const baseOC = Number(mm.ingresosOC||0);
-          mm.ingresosManual = baseIng - baseOC;
-          if(isNaN(mm.ingresosManual)) mm.ingresosManual = baseIng;
-        }
-        if(mm.ingresosOC === undefined) mm.ingresosOC = 0;
-        mm.ingresos = Number(mm.ingresosManual||0) + Number(mm.ingresosOC||0);
-        if(mm.stockFinal === undefined){
-          mm.stockFinal = Number(mm.stockInicial||0) + mm.ingresos - Number(mm.consumo||0);
-        }
-      }
-      return parsed;
+      return normalizeStateObj(parsed);
     }catch(e){
       console.error("Error leyendo localStorage", e);
       return deepClone(defaultState);
     }
   }
 
-  function saveStateToLocalOnly(){
+  function saveState(skipFirestore){
     try{
       localStorage.setItem(LS_KEY, JSON.stringify(state));
     }catch(e){
       console.error("Error guardando localStorage", e);
     }
-  }
-
-  async function loadStateFromFirebase(){
-    try{
-      const ref = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
-      const snap = await getDoc(ref);
-      if(snap.exists()){
-        const data = snap.data();
-        if(data && data.state){
-          state = data.state;
-          console.log("✅ Estado cargado desde Firebase");
-        }else{
-          state = deepClone(defaultState);
-          console.log("ℹ️ Doc vacío en Firebase, uso default");
-          await backupStateToFirebase(state);
-        }
-      }else{
-        // no hay doc: si hay algo en local, lo subo
-        const local = loadStateFromLocal();
-        state = local;
-        console.log("ℹ️ Firebase sin datos, subo estado local/default");
-        await backupStateToFirebase(state);
-      }
-    }catch(e){
-      console.error("Error leyendo desde Firebase, uso localStorage", e);
-      state = loadStateFromLocal();
+    if(!skipFirestore){
+      saveStateToFirestoreDebounced(state);
     }
-    saveStateToLocalOnly();
-    stateLoadedFromFirebase = true;
-  }
-
-  function saveState(){
-    saveStateToLocalOnly();
-    backupStateToFirebase(state);
   }
 
   function fmtNumber(value){
@@ -1417,6 +1417,7 @@
     }
     updateSolicitudProveedoresOptions();
   }
+
   // DASHBOARD
   function renderDashboard(){
     const materialSelect = document.getElementById("dash-material");
@@ -1513,6 +1514,7 @@
       }
     }
 
+    // Info OC pendientes/confirmadas
     const ocPend = [];
     for(let s=0;s<state.solicitudes.length;s++){
       const so = state.solicitudes[s];
@@ -1534,11 +1536,12 @@
       alertText.textContent += extra;
     }
 
+    // últimos movimientos
     const tbody = document.getElementById("dash-movimientos-body");
     const wrapperEmpty = document.getElementById("dash-empty");
     tbody.innerHTML = "";
     let movs = getMovimientosByMaterial(materialId);
-    movs = movs.slice(Math.max(0,movs.length-10));
+    movs = movs.slice(Math.max(0,movs.length-10)); // últimos 10
     movs.reverse();
     if(!movs.length){
       wrapperEmpty.style.display = "block";
@@ -1560,6 +1563,7 @@
     renderWeeklyView();
   }
 
+  // ======= ⚙️ VISTA SEMANAL =======
   function renderWeeklyView(){
     const materialId = document.getElementById("dash-material").value;
     const material = getMaterialById(materialId);
@@ -1596,6 +1600,7 @@
       movByDate[movs[i].fecha] = movs[i];
     }
 
+    // OC confirmadas/entregadas en la semana para esta MP
     const ocByDate = {};
     for(let s=0;s<state.solicitudes.length;s++){
       const so = state.solicitudes[s];
@@ -1623,7 +1628,8 @@
       }
     }
 
-    const baseStock = getLastStockBefore(materialId, isoFromDateObj(monday));
+    // stock inicial arranca desde el último movimiento antes del lunes
+    let baseStock = getLastStockBefore(materialId, mondayIso);
     let runningStock = baseStock;
 
     const avgSemana = getWeeklyAverageConsumption(materialId, mondayIso);
@@ -1633,52 +1639,44 @@
       const d = new Date(monday.getTime());
       d.setDate(d.getDate()+dI);
       const iso = isoFromDateObj(d);
-      const mov = movByDate[iso];
-      const ocDay = ocByDate[iso] || {confirmada:0, recibida:0};
 
-      let stockInicial, ingresos, consumo, stockFinal, diasStock, alerta, alertaClass;
+      const mov = movByDate[iso] || null;
+      const ocDay = ocByDate[iso] || {confirmada:0,recibida:0};
 
-      if(mov){
-        stockInicial = mov.stockInicial;
-        ingresos = mov.ingresos;
-        consumo = mov.consumo;
-        stockFinal = mov.stockFinal;
-        runningStock = stockFinal;
-      }else{
-        stockInicial = runningStock;
-        ingresos = 0;
-        consumo = 0;
-        stockFinal = runningStock;
-      }
+      const stockInicial = runningStock;
 
-      if(avgSemana>0 && stockFinal!==null && stockFinal!==undefined){
-        diasStock = stockFinal/avgSemana;
-      }else{
-        diasStock = null;
-      }
+      const ingresosMovimiento = mov ? Number(mov.ingresos)||0 : 0;
+      const ingresosOCconfirm = ocDay.confirmada || 0;
+      const ingresosOCrec = ocDay.recibida || 0;
 
-      if(mov){
-        if(diasStock!==null && minDias && diasStock < minDias){
-          alerta = "OJO ALERTA – Stock bajo";
-          alertaClass = "alert-text-strong";
-        }else if(diasStock!==null){
-          alerta = "OK";
-          alertaClass = "";
-        }else{
-          alerta = "Sin promedio semanal";
-          alertaClass = "helper-text";
-        }
+      const ingresosTotales = ingresosMovimiento + ingresosOCconfirm + ingresosOCrec;
+
+      const consumo = mov ? Number(mov.consumo)||0 : 0;
+
+      const stockFinal = stockInicial + ingresosTotales - consumo;
+      runningStock = stockFinal;
+
+      const diasStock = (avgSemana>0 && stockFinal!==null && stockFinal!==undefined)
+        ? stockFinal/avgSemana
+        : null;
+
+      let alerta, alertaClass;
+      if(diasStock!==null && minDias && diasStock < minDias){
+        alerta = "OJO ALERTA – Stock bajo";
+        alertaClass = "alert-text-strong";
+      }else if(mov){
+        alerta = "OK";
+        alertaClass = "";
       }else{
         alerta = "Sin datos";
         alertaClass = "helper-text";
       }
 
-      const ingresosMain = fmtNumber(ingresos);
-      let ingresosExtra = "";
-      if(ocDay.recibida>0){
-        ingresosExtra = '<br><span class="helper-text">OC recibida: '+fmtNumber(ocDay.recibida)+'</span>';
-      }else if(ocDay.confirmada>0){
-        ingresosExtra = '<br><span class="helper-text">OC conf.: '+fmtNumber(ocDay.confirmada)+'</span>';
+      let ingresosLabel = fmtNumber(ingresosTotales);
+      if(ingresosOCrec>0){
+        ingresosLabel += '<br><span class="helper-text">OC recibida: '+fmtNumber(ingresosOCrec)+'</span>';
+      }else if(ingresosOCconfirm>0){
+        ingresosLabel += '<br><span class="helper-text">OC conf.: '+fmtNumber(ingresosOCconfirm)+'</span>';
       }
 
       const tr = document.createElement("tr");
@@ -1686,7 +1684,7 @@
         "<td>"+nombresDias[dI]+"</td>"+
         "<td>"+fmtDate(iso)+"</td>"+
         "<td>"+fmtNumber(stockInicial)+"</td>"+
-        "<td>"+ingresosMain+ingresosExtra+"</td>"+
+        "<td>"+ingresosLabel+"</td>"+
         "<td>"+fmtNumber(consumo)+"</td>"+
         "<td>"+fmtNumber(stockFinal)+"</td>"+
         "<td>"+(diasStock!==null ? fmtNumber(diasStock) : "-")+"</td>"+
@@ -1694,7 +1692,7 @@
       tbody.appendChild(tr);
     }
   }
-
+  // MOVIMIENTOS
   function renderMovimientosTable(){
     const sel = document.getElementById("mov-list-material");
     let materialId = sel.value;
@@ -1757,6 +1755,7 @@
       }
     }
 
+    // actualizar movimientos existentes
     for(let mI=0;mI<state.movimientos.length;mI++){
       const m = state.movimientos[mI];
       const key = m.materialId+"|"+m.fecha;
@@ -1780,6 +1779,7 @@
       }
     }
 
+    // crear movimientos automáticos si falta alguno
     for(const key in ocTotals){
       if(!ocTotals.hasOwnProperty(key)) continue;
       const parts = key.split("|");
@@ -1818,6 +1818,7 @@
     saveState();
   }
 
+  // SOLICITUDES
   function renderSolicitudesTable(){
     const tbody = document.getElementById("sol-table-body");
     tbody.innerHTML = "";
@@ -1857,6 +1858,7 @@
     }
   }
 
+  // PROVEEDORES
   function renderProveedores(){
     const tbody = document.getElementById("prov-table-body");
     const datalist = document.getElementById("proveedores-list");
@@ -1888,6 +1890,7 @@
     updateSolicitudProveedoresOptions();
   }
 
+  // CONFIG
   function renderConfigTable(){
     const tbody = document.getElementById("config-table-body");
     tbody.innerHTML = "";
@@ -1945,6 +1948,7 @@
     renderMovimientosTable();
   }
 
+  // STOCK INICIAL AUTO/MANUAL
   function updateAutoStockInicial(){
     const manual = document.getElementById("mov-manual-stock").checked;
     const input = document.getElementById("mov-stock-inicial");
@@ -1964,6 +1968,7 @@
     input.value = base;
   }
 
+  // PROVEEDORES PARA MP
   function getProveedoresForMaterial(materialId){
     const material = getMaterialById(materialId);
     if(!material) return state.proveedores;
@@ -1972,7 +1977,7 @@
     for(let i=0;i<state.proveedores.length;i++){
       const p = state.proveedores[i];
       if(!p.mp){
-        res.push(p);
+        res.push(p); // proveedor general
         continue;
       }
       if(!tipo){
@@ -2015,6 +2020,7 @@
     }
   }
 
+  // EVENTOS FORMULARIOS / NAV
   function setupForms(){
     const solSubmitBtn = document.getElementById("sol-submit-btn");
     const provSubmitBtn = document.getElementById("prov-submit-btn");
@@ -2372,6 +2378,7 @@
     }
   }
 
+  // RELOJ
   function startClock(){
     const el = document.getElementById("clock");
     function tick(){
@@ -2386,6 +2393,7 @@
     setInterval(tick,1000);
   }
 
+  // INIT
   function initApp(){
     initMaterialSelects();
     renderConfigTable();
@@ -2404,21 +2412,19 @@
     updateAutoStockInicial();
     startClock();
     updateSolicitudProveedoresOptions();
+
+    // Traer estado desde Firebase y pisar si hay algo
+    loadStateFromFirestoreAndApply();
   }
 
   // ARRANQUE
   setupLoginUI();
   setupForms();
-
-  onAuthStateChanged(auth, async (user) => {
-    if(user){
-      setUser(user);
-      await loadStateFromFirebase();
-      initApp();
-    }else{
-      setUser(null);
-    }
-  });
+  tryAutoLogin();
+  if(currentUser){
+    initApp();
+  }
 </script>
 </body>
 </html>
+
