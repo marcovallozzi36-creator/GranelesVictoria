@@ -515,15 +515,15 @@
       <div class="login-pill">🛢️</div>
       Control de Graneles – Login
     </div>
-    <div class="login-sub">Ingresá con tu usuario para manejar los graneles de Victoria.</div>
-    <label for="login-user">Usuario</label>
+    <div class="login-sub">Ingresá con tu <strong>email y contraseña</strong> de Firebase.</div>
+    <label for="login-user">Email</label>
     <input id="login-user" autocomplete="username" />
     <label for="login-pass">Contraseña</label>
     <input id="login-pass" type="password" autocomplete="current-password" />
     <button class="login-btn" id="login-btn">Entrar</button>
     <div id="login-error" class="login-error"></div>
     <div class="login-hint">
-      Demo: <strong>pcp / pcp123</strong>, <strong>deposito / dep123</strong>, <strong>produccion / prod123</strong>.
+      Los usuarios se crean en Firebase Authentication (panel web).
     </div>
   </div>
 </div>
@@ -544,7 +544,7 @@
         <span id="user-name">–</span>
       </span>
       <div id="clock">--/--/---- --:--</div>
-      <span class="tag-mini">Datos guardados en este navegador (localStorage)</span>
+      <span class="tag-mini">Datos: Firebase + copia local</span>
     </div>
   </header>
 
@@ -997,7 +997,7 @@
           <div class="card-header">
             <div class="card-title">
               🧱 Materias primas
-              <small>Se guardan en localStorage</small>
+              <small>Se guardan en Firestore (con copia local)</small>
             </div>
             <button id="btn-add-material" class="btn secondary" type="button">➕ Agregar MP</button>
           </div>
@@ -1034,51 +1034,76 @@
     </section>
   </main>
 </div>
+<script type="module">
+  // ==== IMPORTS & FIREBASE ====
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+  import { 
+    getFirestore,
+    doc,
+    getDoc,
+    setDoc,
+    serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+  import {
+    getAuth,
+    signInWithEmailAndPassword,
+    onAuthStateChanged,
+    signOut
+  } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 
-<script>
-  // ===== LOGIN SIMPLE (3 USUARIOS) =====
-  const USERS = [
-    { username:"pcp",        password:"pcp123",   nombre:"PCP – Planificación" },
-    { username:"deposito",   password:"dep123",   nombre:"Depósito Victoria" },
-    { username:"produccion", password:"prod123",  nombre:"Producción Planta" }
-  ];
+  const firebaseConfig = {
+    apiKey: "AIzaSyCLDJFTD7TcMclhUH9unWM_x93FYAlDcM2I",
+    authDomain: "finanzas-4-0.firebaseapp.com",
+    projectId: "finanzas-4-0",
+    storageBucket: "finanzas-4-0.appspot.com",
+    messagingSenderId: "740934543720",
+    appId: "1:740934543720:web:a043e97acedbe3adcbfda0"
+  };
+
+  const fbApp = initializeApp(firebaseConfig);
+  const db = getFirestore(fbApp);
+  const auth = getAuth(fbApp);
+
+  const FIRESTORE_COLLECTION = "controlGranelesVictoria";
+  const FIRESTORE_DOC_ID = "estadoGeneral";
+
   let currentUser = null;
-
   let editingProveedorId = null;
   let editingSolicitudId = null;
   let editingMovimientoKey = null; // "materialId|fecha"
 
-  function setUser(user){
-    currentUser = user;
-    if(user){
-      try{
-        localStorage.setItem("controlGranelesUsuario", JSON.stringify(user));
-      }catch(e){}
-      document.getElementById("user-name").textContent = user.nombre + " ("+user.username+")";
-      document.getElementById("app-shell").style.display = "block";
-      document.getElementById("login-screen").style.display = "none";
-    }else{
-      try{
-        localStorage.removeItem("controlGranelesUsuario");
-      }catch(e){}
-      document.getElementById("app-shell").style.display = "none";
-      document.getElementById("login-screen").style.display = "flex";
+  async function backupStateToFirebase(stateToSave){
+    if(!currentUser) return; // solo si hay usuario logueado
+    try{
+      await setDoc(
+        doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID),
+        {
+          state: stateToSave,
+          updatedAt: serverTimestamp(),
+          lastUser: {
+            uid: currentUser.uid,
+            email: currentUser.email || null
+          }
+        },
+        { merge:true }
+      );
+      console.log("✅ Estado guardado en Firebase");
+    }catch(e){
+      console.error("Error guardando en Firebase", e);
     }
   }
 
-  function tryAutoLogin(){
-    try{
-      const raw = localStorage.getItem("controlGranelesUsuario");
-      if(!raw) return;
-      const saved = JSON.parse(raw);
-      if(!saved || !saved.username) return;
-      for(var i=0;i<USERS.length;i++){
-        if(USERS[i].username === saved.username){
-          setUser(USERS[i]);
-          return;
-        }
-      }
-    }catch(e){}
+  function setUser(user){
+    currentUser = user;
+    if(user){
+      const nameEl = document.getElementById("user-name");
+      nameEl.textContent = user.email || "(sin email)";
+      document.getElementById("app-shell").style.display = "block";
+      document.getElementById("login-screen").style.display = "none";
+    }else{
+      document.getElementById("app-shell").style.display = "none";
+      document.getElementById("login-screen").style.display = "flex";
+    }
   }
 
   function setupLoginUI(){
@@ -1087,23 +1112,25 @@
     const btn = document.getElementById("login-btn");
     const errorEl = document.getElementById("login-error");
 
-    function doLogin(){
-      const u = userInput.value.trim();
-      const p = passInput.value;
-      let found = null;
-      for(var i=0;i<USERS.length;i++){
-        if(USERS[i].username===u && USERS[i].password===p){
-          found = USERS[i];
-          break;
-        }
-      }
-      if(!found){
-        errorEl.textContent = "Usuario o contraseña incorrectos.";
+    async function doLogin(){
+      const email = userInput.value.trim();
+      const password = passInput.value;
+      if(!email || !password){
+        errorEl.textContent = "Completá email y contraseña.";
         return;
       }
-      errorEl.textContent = "";
-      setUser(found);
-      initApp();
+      try{
+        await signInWithEmailAndPassword(auth, email, password);
+        errorEl.textContent = "";
+        // onAuthStateChanged se encarga de seguir el flujo
+      }catch(e){
+        console.error(e);
+        let msg = "Error al iniciar sesión.";
+        if(e.code === "auth/user-not-found") msg = "Usuario no encontrado.";
+        if(e.code === "auth/wrong-password") msg = "Contraseña incorrecta.";
+        if(e.code === "auth/invalid-email") msg = "Email inválido.";
+        errorEl.textContent = msg;
+      }
     }
 
     btn.addEventListener("click", doLogin);
@@ -1182,32 +1209,33 @@
     proveedores:[]
   };
 
-  var state = loadState();
+  let state = deepClone(defaultState);
+  let stateLoadedFromFirebase = false;
 
-  function loadState(){
+  function loadStateFromLocal(){
     try{
-      var raw = localStorage.getItem(LS_KEY);
+      const raw = localStorage.getItem(LS_KEY);
       if(!raw){
         return deepClone(defaultState);
       }
-      var parsed = JSON.parse(raw);
+      const parsed = JSON.parse(raw);
       if(!parsed || typeof parsed!=="object") return deepClone(defaultState);
       if(!parsed.materiales) parsed.materiales = deepClone(defaultState.materiales);
       if(!parsed.movimientos) parsed.movimientos = [];
       if(!parsed.solicitudes) parsed.solicitudes = [];
       if(!parsed.proveedores) parsed.proveedores = [];
 
-      for(var i=0;i<parsed.materiales.length;i++){
-        var m = parsed.materiales[i];
+      for(let i=0;i<parsed.materiales.length;i++){
+        const m = parsed.materiales[i];
         if(m.grupoAlmacen === undefined) m.grupoAlmacen = m.nombre || "";
         if(m.capacidadGrupo === undefined) m.capacidadGrupo = Number(m.capacidad)||0;
         if(m.tipo === undefined) m.tipo = m.nombre || "";
       }
-      for(var j=0;j<parsed.movimientos.length;j++){
-        var mm = parsed.movimientos[j];
+      for(let j=0;j<parsed.movimientos.length;j++){
+        const mm = parsed.movimientos[j];
         if(mm.ingresosManual === undefined){
-          var baseIng = Number(mm.ingresos||0);
-          var baseOC = Number(mm.ingresosOC||0);
+          const baseIng = Number(mm.ingresos||0);
+          const baseOC = Number(mm.ingresosOC||0);
           mm.ingresosManual = baseIng - baseOC;
           if(isNaN(mm.ingresosManual)) mm.ingresosManual = baseIng;
         }
@@ -1224,12 +1252,46 @@
     }
   }
 
-  function saveState(){
+  function saveStateToLocalOnly(){
     try{
       localStorage.setItem(LS_KEY, JSON.stringify(state));
     }catch(e){
       console.error("Error guardando localStorage", e);
     }
+  }
+
+  async function loadStateFromFirebase(){
+    try{
+      const ref = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
+      const snap = await getDoc(ref);
+      if(snap.exists()){
+        const data = snap.data();
+        if(data && data.state){
+          state = data.state;
+          console.log("✅ Estado cargado desde Firebase");
+        }else{
+          state = deepClone(defaultState);
+          console.log("ℹ️ Doc vacío en Firebase, uso default");
+          await backupStateToFirebase(state);
+        }
+      }else{
+        // no hay doc: si hay algo en local, lo subo
+        const local = loadStateFromLocal();
+        state = local;
+        console.log("ℹ️ Firebase sin datos, subo estado local/default");
+        await backupStateToFirebase(state);
+      }
+    }catch(e){
+      console.error("Error leyendo desde Firebase, uso localStorage", e);
+      state = loadStateFromLocal();
+    }
+    saveStateToLocalOnly();
+    stateLoadedFromFirebase = true;
+  }
+
+  function saveState(){
+    saveStateToLocalOnly();
+    backupStateToFirebase(state);
   }
 
   function fmtNumber(value){
@@ -1238,15 +1300,15 @@
   }
   function fmtDate(iso){
     if(!iso) return "";
-    var parts = iso.split("-");
+    const parts = iso.split("-");
     if(parts.length !== 3) return iso;
-    var y = parts[0], m = parts[1], d = parts[2];
+    const y = parts[0], m = parts[1], d = parts[2];
     return d.padStart(2,"0")+"/"+m.padStart(2,"0");
   }
   function isoFromDateObj(d){
-    var y = d.getFullYear();
-    var m = String(d.getMonth()+1).padStart(2,"0");
-    var day = String(d.getDate()).padStart(2,"0");
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,"0");
+    const day = String(d.getDate()).padStart(2,"0");
     return y+"-"+m+"-"+day;
   }
   function todayIso(){
@@ -1254,15 +1316,15 @@
   }
 
   function getMaterialById(id){
-    for(var i=0;i<state.materiales.length;i++){
+    for(let i=0;i<state.materiales.length;i++){
       if(state.materiales[i].id===id) return state.materiales[i];
     }
     return null;
   }
 
   function getMovimientosByMaterial(materialId){
-    var arr = [];
-    for(var i=0;i<state.movimientos.length;i++){
+    const arr = [];
+    for(let i=0;i<state.movimientos.length;i++){
       if(state.movimientos[i].materialId===materialId) arr.push(state.movimientos[i]);
     }
     arr.sort(function(a,b){
@@ -1274,15 +1336,15 @@
   }
 
   function getUltimoMovimiento(materialId){
-    var list = getMovimientosByMaterial(materialId);
+    const list = getMovimientosByMaterial(materialId);
     if(!list.length) return null;
     return list[list.length-1];
   }
 
   function getLastStockBefore(materialId, fecha){
-    var movs = getMovimientosByMaterial(materialId);
-    var last = null;
-    for(var i=0;i<movs.length;i++){
+    const movs = getMovimientosByMaterial(materialId);
+    let last = null;
+    for(let i=0;i<movs.length;i++){
       if(movs[i].fecha < fecha) last = movs[i];
     }
     return last ? Number(last.stockFinal)||0 : 0;
@@ -1290,31 +1352,31 @@
 
   // SEMANAS
   function getWeekStart(dateIso){
-    var parts = dateIso.split("-");
+    const parts = dateIso.split("-");
     if(parts.length!==3) return null;
-    var y = Number(parts[0]), m = Number(parts[1]), d = Number(parts[2]);
-    var dt = new Date(y, m-1, d);
-    var day = dt.getDay(); // 0 dom, 1 lun...
-    var diff = (day === 0 ? -6 : 1 - day); // lunes
+    const y = Number(parts[0]), m = Number(parts[1]), d = Number(parts[2]);
+    const dt = new Date(y, m-1, d);
+    const day = dt.getDay(); // 0 dom, 1 lun...
+    const diff = (day === 0 ? -6 : 1 - day); // lunes
     dt.setDate(dt.getDate() + diff);
     return dt;
   }
 
   function getWeeklyAverageConsumption(materialId, weekStartIso){
-    var start = getWeekStart(weekStartIso);
+    const start = getWeekStart(weekStartIso);
     if(!start) return 0;
-    var movs = getMovimientosByMaterial(materialId);
+    const movs = getMovimientosByMaterial(materialId);
     if(!movs.length) return 0;
 
-    var totalConsumo = 0;
-    var diasConDatos = 0;
+    let totalConsumo = 0;
+    let diasConDatos = 0;
 
-    for(var i=0;i<7;i++){
-      var d = new Date(start.getTime());
+    for(let i=0;i<7;i++){
+      const d = new Date(start.getTime());
       d.setDate(d.getDate() + i);
-      var iso = isoFromDateObj(d);
-      var mov = null;
-      for(var j=0;j<movs.length;j++){
+      const iso = isoFromDateObj(d);
+      let mov = null;
+      for(let j=0;j<movs.length;j++){
         if(movs[j].fecha===iso){mov=movs[j];break;}
       }
       if(mov){
@@ -1327,27 +1389,27 @@
   }
 
   function initMaterialSelects(){
-    var selects = [
+    const selects = [
       document.getElementById("dash-material"),
       document.getElementById("mov-material"),
       document.getElementById("mov-list-material"),
       document.getElementById("sol-material")
     ];
-    for(var s=0;s<selects.length;s++){
-      var sel = selects[s];
+    for(let s=0;s<selects.length;s++){
+      const sel = selects[s];
       if(!sel) continue;
-      var current = sel.value;
+      const current = sel.value;
       sel.innerHTML = "";
-      for(var i=0;i<state.materiales.length;i++){
-        var m = state.materiales[i];
-        var opt = document.createElement("option");
+      for(let i=0;i<state.materiales.length;i++){
+        const m = state.materiales[i];
+        const opt = document.createElement("option");
         opt.value = m.id;
         opt.textContent = m.nombre;
         sel.appendChild(opt);
       }
       if(current){
-        var exists = false;
-        for(var k=0;k<state.materiales.length;k++){
+        let exists = false;
+        for(let k=0;k<state.materiales.length;k++){
           if(state.materiales[k].id===current){exists=true;break;}
         }
         if(exists) sel.value = current;
@@ -1355,26 +1417,25 @@
     }
     updateSolicitudProveedoresOptions();
   }
-
   // DASHBOARD
   function renderDashboard(){
-    var materialSelect = document.getElementById("dash-material");
+    const materialSelect = document.getElementById("dash-material");
     if(!materialSelect.value && state.materiales.length){
       materialSelect.value = state.materiales[0].id;
     }
-    var materialId = materialSelect.value;
-    var material = getMaterialById(materialId);
+    const materialId = materialSelect.value;
+    const material = getMaterialById(materialId);
     if(!material) return;
 
-    var grupo = material.grupoAlmacen || "";
-    var stockAlmacen = 0;
-    var fechaUltima = null;
+    const grupo = material.grupoAlmacen || "";
+    let stockAlmacen = 0;
+    let fechaUltima = null;
 
     if(grupo){
-      for(var i=0;i<state.materiales.length;i++){
-        var mg = state.materiales[i];
+      for(let i=0;i<state.materiales.length;i++){
+        const mg = state.materiales[i];
         if(mg.grupoAlmacen===grupo){
-          var ultimo = getUltimoMovimiento(mg.id);
+          const ultimo = getUltimoMovimiento(mg.id);
           if(ultimo){
             stockAlmacen += Number(ultimo.stockFinal)||0;
             if(!fechaUltima || ultimo.fecha>fechaUltima) fechaUltima = ultimo.fecha;
@@ -1382,32 +1443,32 @@
         }
       }
     }else{
-      var ultimoMP = getUltimoMovimiento(materialId);
+      const ultimoMP = getUltimoMovimiento(materialId);
       if(ultimoMP){
         stockAlmacen = Number(ultimoMP.stockFinal)||0;
         fechaUltima = ultimoMP.fecha;
       }
     }
 
-    var capacidadGrupo = Number(material.capacidadGrupo)||0;
-    var minDias = Number(material.minDias)||0;
+    const capacidadGrupo = Number(material.capacidadGrupo)||0;
+    const minDias = Number(material.minDias)||0;
 
-    var ultMovMP = getUltimoMovimiento(materialId);
-    var stockMP = ultMovMP ? Number(ultMovMP.stockFinal)||0 : 0;
+    const ultMovMP = getUltimoMovimiento(materialId);
+    const stockMP = ultMovMP ? Number(ultMovMP.stockFinal)||0 : 0;
 
-    var avgSemana = 0;
+    let avgSemana = 0;
     if(ultMovMP){
-      var startWeek = getWeekStart(ultMovMP.fecha);
+      const startWeek = getWeekStart(ultMovMP.fecha);
       if(startWeek){
-        var startIso = isoFromDateObj(startWeek);
+        const startIso = isoFromDateObj(startWeek);
         avgSemana = getWeeklyAverageConsumption(materialId, startIso);
       }
     }
-    var consumoBackup = Number(material.consumoRef)||0;
-    var consumoRefEfectivo = avgSemana>0 ? avgSemana : consumoBackup;
+    const consumoBackup = Number(material.consumoRef)||0;
+    const consumoRefEfectivo = avgSemana>0 ? avgSemana : consumoBackup;
 
-    var diasStock = consumoRefEfectivo>0 ? stockMP/consumoRefEfectivo : null;
-    var ocupacion = capacidadGrupo>0 ? (stockAlmacen/capacidadGrupo)*100 : 0;
+    const diasStock = consumoRefEfectivo>0 ? stockMP/consumoRefEfectivo : null;
+    const ocupacion = capacidadGrupo>0 ? (stockAlmacen/capacidadGrupo)*100 : 0;
 
     document.getElementById("dash-material-label").textContent =
       "· "+material.nombre+" ("+(material.codigo||"-")+") – Tipo: "+(material.tipo||"-")+" – Grupo: "+(material.grupoAlmacen||"–");
@@ -1420,15 +1481,15 @@
     document.getElementById("dash-consumo-ref").textContent = fmtNumber(consumoRefEfectivo);
     document.getElementById("dash-min-dias").textContent = minDias || "–";
 
-    var diasEl = document.getElementById("dash-dias-stock");
+    const diasEl = document.getElementById("dash-dias-stock");
     diasEl.textContent = diasStock!==null ? fmtNumber(diasStock) : "–";
 
-    var fill = document.getElementById("dash-progress-fill");
-    var width = Math.max(0, Math.min(100, ocupacion));
+    const fill = document.getElementById("dash-progress-fill");
+    const width = Math.max(0, Math.min(100, ocupacion));
     fill.style.width = width.toFixed(1)+"%";
 
-    var badge = document.getElementById("dash-status-badge");
-    var alertText = document.getElementById("dash-alert-text");
+    const badge = document.getElementById("dash-status-badge");
+    const alertText = document.getElementById("dash-alert-text");
     badge.className = "badge";
 
     if(capacidadGrupo && stockAlmacen > capacidadGrupo){
@@ -1452,42 +1513,40 @@
       }
     }
 
-    // Info OC pendientes/confirmadas
-    var ocPend = [];
-    for(var s=0;s<state.solicitudes.length;s++){
-      var so = state.solicitudes[s];
+    const ocPend = [];
+    for(let s=0;s<state.solicitudes.length;s++){
+      const so = state.solicitudes[s];
       if(so.materialId===materialId && (so.estado==="pendiente" || so.estado==="confirmada")){
         ocPend.push(so);
       }
     }
     if(ocPend.length){
-      var totalOC = 0;
-      var nextDate = null;
-      for(var q=0;q<ocPend.length;q++){
+      let totalOC = 0;
+      let nextDate = null;
+      for(let q=0;q<ocPend.length;q++){
         totalOC += Number(ocPend[q].cantidadSolicitada||0);
         if(ocPend[q].fechaEntrega && (!nextDate || ocPend[q].fechaEntrega<nextDate)){
           nextDate = ocPend[q].fechaEntrega;
         }
       }
-      var extra = " · OC pendientes/confirmadas: "+fmtNumber(totalOC)+" "+(material.unidad||"");
+      let extra = " · OC pendientes/confirmadas: "+fmtNumber(totalOC)+" "+(material.unidad||"");
       if(nextDate) extra += " (próx entrega: "+fmtDate(nextDate)+")";
       alertText.textContent += extra;
     }
 
-    // últimos movimientos
-    var tbody = document.getElementById("dash-movimientos-body");
-    var wrapperEmpty = document.getElementById("dash-empty");
+    const tbody = document.getElementById("dash-movimientos-body");
+    const wrapperEmpty = document.getElementById("dash-empty");
     tbody.innerHTML = "";
-    var movs = getMovimientosByMaterial(materialId);
-    movs = movs.slice(Math.max(0,movs.length-10)); // últimos 10
+    let movs = getMovimientosByMaterial(materialId);
+    movs = movs.slice(Math.max(0,movs.length-10));
     movs.reverse();
     if(!movs.length){
       wrapperEmpty.style.display = "block";
     }else{
       wrapperEmpty.style.display = "none";
-      for(var mI=0;mI<movs.length;mI++){
-        var mrow = movs[mI];
-        var tr = document.createElement("tr");
+      for(let mI=0;mI<movs.length;mI++){
+        const mrow = movs[mI];
+        const tr = document.createElement("tr");
         tr.innerHTML = "<td>"+fmtDate(mrow.fecha)+"</td>"+
           "<td>"+fmtNumber(mrow.stockInicial)+"</td>"+
           "<td>"+fmtNumber(mrow.ingresos)+"</td>"+
@@ -1502,16 +1561,16 @@
   }
 
   function renderWeeklyView(){
-    var materialId = document.getElementById("dash-material").value;
-    var material = getMaterialById(materialId);
+    const materialId = document.getElementById("dash-material").value;
+    const material = getMaterialById(materialId);
     if(!material) return;
 
-    var minDias = Number(material.minDias)||0;
+    const minDias = Number(material.minDias)||0;
 
-    var inputWeek = document.getElementById("week-start-date");
-    var startDateIso = inputWeek.value;
+    const inputWeek = document.getElementById("week-start-date");
+    let startDateIso = inputWeek.value;
     if(!startDateIso){
-      var mondayAuto = getWeekStart(todayIso());
+      const mondayAuto = getWeekStart(todayIso());
       if(mondayAuto){
         startDateIso = isoFromDateObj(mondayAuto);
         inputWeek.value = startDateIso;
@@ -1521,29 +1580,28 @@
       }
     }
 
-    var monday = getWeekStart(startDateIso);
+    const monday = getWeekStart(startDateIso);
     if(!monday) return;
-    var mondayIso = isoFromDateObj(monday);
-    var sunday = new Date(monday.getTime());
+    const mondayIso = isoFromDateObj(monday);
+    const sunday = new Date(monday.getTime());
     sunday.setDate(sunday.getDate()+6);
-    var sundayIso = isoFromDateObj(sunday);
+    const sundayIso = isoFromDateObj(sunday);
 
-    var tbody = document.getElementById("week-table-body");
+    const tbody = document.getElementById("week-table-body");
     tbody.innerHTML = "";
 
-    var movs = getMovimientosByMaterial(materialId);
-    var movByDate = {};
-    for(var i=0;i<movs.length;i++){
+    const movs = getMovimientosByMaterial(materialId);
+    const movByDate = {};
+    for(let i=0;i<movs.length;i++){
       movByDate[movs[i].fecha] = movs[i];
     }
 
-    // OC confirmadas/entregadas en la semana para esta MP
-    var ocByDate = {};
-    for(var s=0;s<state.solicitudes.length;s++){
-      var so = state.solicitudes[s];
+    const ocByDate = {};
+    for(let s=0;s<state.solicitudes.length;s++){
+      const so = state.solicitudes[s];
       if(so.materialId!==materialId) continue;
       if(!so.estado) continue;
-      var dateKey = null;
+      let dateKey = null;
       if(so.estado==="confirmada"){
         dateKey = so.fechaEntrega || null;
       }else if(so.estado==="entregada"){
@@ -1558,27 +1616,27 @@
       if(so.estado==="confirmada"){
         ocByDate[dateKey].confirmada += Number(so.cantidadSolicitada||0);
       }else if(so.estado==="entregada"){
-        var qty = (so.cantidadRecibida!==undefined && so.cantidadRecibida!==null && so.cantidadRecibida!=="")
+        const qty = (so.cantidadRecibida!==undefined && so.cantidadRecibida!==null && so.cantidadRecibida!=="")
           ? Number(so.cantidadRecibida)
           : Number(so.cantidadSolicitada||0);
         ocByDate[dateKey].recibida += qty;
       }
     }
 
-    var baseStock = getLastStockBefore(materialId, isoFromDateObj(monday));
-    var runningStock = baseStock;
+    const baseStock = getLastStockBefore(materialId, isoFromDateObj(monday));
+    let runningStock = baseStock;
 
-    var avgSemana = getWeeklyAverageConsumption(materialId, mondayIso);
-    var nombresDias = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
+    const avgSemana = getWeeklyAverageConsumption(materialId, mondayIso);
+    const nombresDias = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
 
-    for(var dI=0;dI<7;dI++){
-      var d = new Date(monday.getTime());
+    for(let dI=0;dI<7;dI++){
+      const d = new Date(monday.getTime());
       d.setDate(d.getDate()+dI);
-      var iso = isoFromDateObj(d);
-      var mov = movByDate[iso];
-      var ocDay = ocByDate[iso] || {confirmada:0, recibida:0};
+      const iso = isoFromDateObj(d);
+      const mov = movByDate[iso];
+      const ocDay = ocByDate[iso] || {confirmada:0, recibida:0};
 
-      var stockInicial, ingresos, consumo, stockFinal, diasStock, alerta, alertaClass;
+      let stockInicial, ingresos, consumo, stockFinal, diasStock, alerta, alertaClass;
 
       if(mov){
         stockInicial = mov.stockInicial;
@@ -1615,15 +1673,15 @@
         alertaClass = "helper-text";
       }
 
-      var ingresosMain = fmtNumber(ingresos);
-      var ingresosExtra = "";
+      const ingresosMain = fmtNumber(ingresos);
+      let ingresosExtra = "";
       if(ocDay.recibida>0){
         ingresosExtra = '<br><span class="helper-text">OC recibida: '+fmtNumber(ocDay.recibida)+'</span>';
       }else if(ocDay.confirmada>0){
         ingresosExtra = '<br><span class="helper-text">OC conf.: '+fmtNumber(ocDay.confirmada)+'</span>';
       }
 
-      var tr = document.createElement("tr");
+      const tr = document.createElement("tr");
       tr.innerHTML =
         "<td>"+nombresDias[dI]+"</td>"+
         "<td>"+fmtDate(iso)+"</td>"+
@@ -1637,38 +1695,37 @@
     }
   }
 
-  // MOVIMIENTOS
   function renderMovimientosTable(){
-    var sel = document.getElementById("mov-list-material");
-    var materialId = sel.value;
+    const sel = document.getElementById("mov-list-material");
+    let materialId = sel.value;
     if(!materialId){
       if(state.materiales.length) materialId = state.materiales[0].id;
     }
-    var material = getMaterialById(materialId);
+    const material = getMaterialById(materialId);
     if(!material) return;
     sel.value = materialId;
 
-    var tbody = document.getElementById("mov-table-body");
+    const tbody = document.getElementById("mov-table-body");
     tbody.innerHTML = "";
 
-    var list = getMovimientosByMaterial(materialId);
-    var weekCache = {};
+    const list = getMovimientosByMaterial(materialId);
+    const weekCache = {};
 
-    for(var i=0;i<list.length;i++){
-      var m = list[i];
-      var weekStart = getWeekStart(m.fecha);
-      var avgSemana = 0;
+    for(let i=0;i<list.length;i++){
+      const m = list[i];
+      const weekStart = getWeekStart(m.fecha);
+      let avgSemana = 0;
       if(weekStart){
-        var weekIso = isoFromDateObj(weekStart);
+        const weekIso = isoFromDateObj(weekStart);
         if(weekCache[weekIso]===undefined){
           weekCache[weekIso] = getWeeklyAverageConsumption(materialId, weekIso);
         }
         avgSemana = weekCache[weekIso];
       }
-      var consumoBase = avgSemana>0 ? avgSemana : Number(material.consumoRef)||0;
-      var diasStock = consumoBase>0 ? (Number(m.stockFinal)/consumoBase) : null;
+      const consumoBase = avgSemana>0 ? avgSemana : Number(material.consumoRef)||0;
+      const diasStock = consumoBase>0 ? (Number(m.stockFinal)/consumoBase) : null;
 
-      var tr = document.createElement("tr");
+      const tr = document.createElement("tr");
       tr.innerHTML =
         "<td>"+fmtDate(m.fecha)+"</td>"+
         "<td>"+fmtNumber(m.stockInicial)+"</td>"+
@@ -1686,12 +1743,12 @@
 
   // INGRESOS DESDE SOLICITUDES
   function recomputeIngresosFromSolicitudes(){
-    var ocTotals = {};
-    for(var i=0;i<state.solicitudes.length;i++){
-      var s = state.solicitudes[i];
-      var cantidad = Number(s.cantidadRecibida||0);
+    const ocTotals = {};
+    for(let i=0;i<state.solicitudes.length;i++){
+      const s = state.solicitudes[i];
+      const cantidad = Number(s.cantidadRecibida||0);
       if(s.estado==="entregada" && s.fechaIngreso && cantidad>0){
-        var key = s.materialId+"|"+s.fechaIngreso;
+        const key = s.materialId+"|"+s.fechaIngreso;
         if(!ocTotals[key]) ocTotals[key] = {cantidad:0, proveedores:{}};
         ocTotals[key].cantidad += cantidad;
         if(s.proveedor){
@@ -1700,15 +1757,14 @@
       }
     }
 
-    // actualizar movimientos existentes
-    for(var mI=0;mI<state.movimientos.length;mI++){
-      var m = state.movimientos[mI];
-      var key = m.materialId+"|"+m.fecha;
-      var data = ocTotals[key];
+    for(let mI=0;mI<state.movimientos.length;mI++){
+      const m = state.movimientos[mI];
+      const key = m.materialId+"|"+m.fecha;
+      const data = ocTotals[key];
 
       if(m.ingresosManual===undefined){
-        var baseIng = Number(m.ingresos||0);
-        var baseOC = Number(m.ingresosOC||0);
+        const baseIng = Number(m.ingresos||0);
+        const baseOC = Number(m.ingresosOC||0);
         m.ingresosManual = baseIng - baseOC;
         if(isNaN(m.ingresosManual)) m.ingresosManual = baseIng;
       }
@@ -1717,34 +1773,33 @@
       m.stockFinal = Number(m.stockInicial||0) + m.ingresos - Number(m.consumo||0);
 
       if(data){
-        var provs = Object.keys(data.proveedores);
+        const provs = Object.keys(data.proveedores);
         if(provs.length && !m.proveedor){
           m.proveedor = provs.join(", ");
         }
       }
     }
 
-    // crear movimientos automáticos si falta alguno
-    for(var key in ocTotals){
+    for(const key in ocTotals){
       if(!ocTotals.hasOwnProperty(key)) continue;
-      var parts = key.split("|");
-      var materialId = parts[0];
-      var fecha = parts[1];
-      var exists = false;
-      for(var j=0;j<state.movimientos.length;j++){
-        var mm = state.movimientos[j];
+      const parts = key.split("|");
+      const materialId = parts[0];
+      const fecha = parts[1];
+      let exists = false;
+      for(let j=0;j<state.movimientos.length;j++){
+        const mm = state.movimientos[j];
         if(mm.materialId===materialId && mm.fecha===fecha){
           exists = true;break;
         }
       }
       if(exists) continue;
 
-      var stockInicial = getLastStockBefore(materialId, fecha);
-      var ingresosManual = 0;
-      var ingresosOC = ocTotals[key].cantidad;
-      var ingresos = ingresosManual + ingresosOC;
-      var stockFinal = stockInicial + ingresos;
-      var provNames = Object.keys(ocTotals[key].proveedores).join(", ");
+      const stockInicial = getLastStockBefore(materialId, fecha);
+      const ingresosManual = 0;
+      const ingresosOC = ocTotals[key].cantidad;
+      const ingresos = ingresosManual + ingresosOC;
+      const stockFinal = stockInicial + ingresos;
+      const provNames = Object.keys(ocTotals[key].proveedores).join(", ");
 
       state.movimientos.push({
         materialId:materialId,
@@ -1763,29 +1818,28 @@
     saveState();
   }
 
-  // SOLICITUDES
   function renderSolicitudesTable(){
-    var tbody = document.getElementById("sol-table-body");
+    const tbody = document.getElementById("sol-table-body");
     tbody.innerHTML = "";
-    var list = state.solicitudes.slice();
+    const list = state.solicitudes.slice();
     list.sort(function(a,b){
-      var fa = a.fechaEntrega||"";
-      var fb = b.fechaEntrega||"";
+      const fa = a.fechaEntrega||"";
+      const fb = b.fechaEntrega||"";
       if(fa<fb) return -1;
       if(fa>fb) return 1;
       return 0;
     });
 
-    for(var i=0;i<list.length;i++){
-      var s = list[i];
-      var material = getMaterialById(s.materialId);
-      var estado = s.estado || "pendiente";
-      var estadoClass = "pending";
-      var text = "Pendiente";
+    for(let i=0;i<list.length;i++){
+      const s = list[i];
+      const material = getMaterialById(s.materialId);
+      const estado = s.estado || "pendiente";
+      let estadoClass = "pending";
+      let text = "Pendiente";
       if(estado==="confirmada"){estadoClass="confirmed";text="Confirmada";}
       if(estado==="entregada"){estadoClass="delivered";text="Entregada";}
 
-      var tr = document.createElement("tr");
+      const tr = document.createElement("tr");
       tr.innerHTML =
         "<td>"+(material?material.nombre:"-")+"</td>"+
         "<td>"+(s.proveedor||"")+"</td>"+
@@ -1803,18 +1857,17 @@
     }
   }
 
-  // PROVEEDORES
   function renderProveedores(){
-    var tbody = document.getElementById("prov-table-body");
-    var datalist = document.getElementById("proveedores-list");
+    const tbody = document.getElementById("prov-table-body");
+    const datalist = document.getElementById("proveedores-list");
     if(!tbody || !datalist) return;
 
     tbody.innerHTML = "";
     datalist.innerHTML = "";
 
-    for(var i=0;i<state.proveedores.length;i++){
-      var p = state.proveedores[i];
-      var tr = document.createElement("tr");
+    for(let i=0;i<state.proveedores.length;i++){
+      const p = state.proveedores[i];
+      const tr = document.createElement("tr");
       tr.innerHTML =
         "<td>"+p.nombre+"</td>"+
         "<td>"+(p.cuit||"")+"</td>"+
@@ -1827,7 +1880,7 @@
         '</td>';
       tbody.appendChild(tr);
 
-      var opt = document.createElement("option");
+      const opt = document.createElement("option");
       opt.value = p.nombre;
       datalist.appendChild(opt);
     }
@@ -1835,13 +1888,12 @@
     updateSolicitudProveedoresOptions();
   }
 
-  // CONFIG
   function renderConfigTable(){
-    var tbody = document.getElementById("config-table-body");
+    const tbody = document.getElementById("config-table-body");
     tbody.innerHTML = "";
-    for(var i=0;i<state.materiales.length;i++){
-      var m = state.materiales[i];
-      var tr = document.createElement("tr");
+    for(let i=0;i<state.materiales.length;i++){
+      const m = state.materiales[i];
+      const tr = document.createElement("tr");
       tr.innerHTML =
         '<td><input data-field="nombre" data-index="'+i+'" value="'+(m.nombre||"")+'"></td>'+
         '<td><input data-field="tipo" data-index="'+i+'" value="'+(m.tipo||"")+'"></td>'+
@@ -1856,7 +1908,7 @@
   }
 
   function addMaterial(){
-    var id = "mp_"+Date.now();
+    const id = "mp_"+Date.now();
     state.materiales.push({
       id:id,
       nombre:"NUEVA MP",
@@ -1870,16 +1922,17 @@
     });
     renderConfigTable();
     initMaterialSelects();
+    saveState();
   }
 
   function saveConfigFromTable(){
-    var inputs = document.querySelectorAll("#config-table-body input");
-    for(var i=0;i<inputs.length;i++){
-      var input = inputs[i];
-      var idx = Number(input.getAttribute("data-index"));
-      var field = input.getAttribute("data-field");
+    const inputs = document.querySelectorAll("#config-table-body input");
+    for(let i=0;i<inputs.length;i++){
+      const input = inputs[i];
+      const idx = Number(input.getAttribute("data-index"));
+      const field = input.getAttribute("data-field");
       if(state.materiales[idx]){
-        var val = input.value;
+        let val = input.value;
         if(field==="capacidadGrupo" || field==="consumoRef" || field==="minDias"){
           val = Number(val)||0;
         }
@@ -1892,12 +1945,11 @@
     renderMovimientosTable();
   }
 
-  // STOCK INICIAL AUTO/MANUAL
   function updateAutoStockInicial(){
-    var manual = document.getElementById("mov-manual-stock").checked;
-    var input = document.getElementById("mov-stock-inicial");
-    var materialId = document.getElementById("mov-material").value;
-    var fecha = document.getElementById("mov-fecha").value;
+    const manual = document.getElementById("mov-manual-stock").checked;
+    const input = document.getElementById("mov-stock-inicial");
+    const materialId = document.getElementById("mov-material").value;
+    const fecha = document.getElementById("mov-fecha").value;
 
     if(manual){
       input.disabled = false;
@@ -1908,20 +1960,19 @@
       input.value = "";
       return;
     }
-    var base = getLastStockBefore(materialId, fecha);
+    const base = getLastStockBefore(materialId, fecha);
     input.value = base;
   }
 
-  // PROVEEDORES PARA MP
   function getProveedoresForMaterial(materialId){
-    var material = getMaterialById(materialId);
+    const material = getMaterialById(materialId);
     if(!material) return state.proveedores;
-    var tipo = (material.tipo || material.nombre || "").toLowerCase();
-    var res = [];
-    for(var i=0;i<state.proveedores.length;i++){
-      var p = state.proveedores[i];
+    const tipo = (material.tipo || material.nombre || "").toLowerCase();
+    const res = [];
+    for(let i=0;i<state.proveedores.length;i++){
+      const p = state.proveedores[i];
       if(!p.mp){
-        res.push(p); // proveedor general
+        res.push(p);
         continue;
       }
       if(!tipo){
@@ -1936,52 +1987,51 @@
   }
 
   function updateSolicitudProveedoresOptions(){
-    var selMat = document.getElementById("sol-material");
-    var selProv = document.getElementById("sol-proveedor");
+    const selMat = document.getElementById("sol-material");
+    const selProv = document.getElementById("sol-proveedor");
     if(!selMat || !selProv) return;
-    var materialId = selMat.value;
+    const materialId = selMat.value;
     selProv.innerHTML = "";
 
-    var provs = getProveedoresForMaterial(materialId);
+    const provs = getProveedoresForMaterial(materialId);
     if(!provs.length){
-      var opt = document.createElement("option");
+      const opt = document.createElement("option");
       opt.value = "";
       opt.textContent = "— No hay proveedores cargados para esta MP —";
       selProv.appendChild(opt);
       return;
     }
-    var optEmpty = document.createElement("option");
+    const optEmpty = document.createElement("option");
     optEmpty.value = "";
     optEmpty.textContent = "Seleccionar proveedor…";
     selProv.appendChild(optEmpty);
 
-    for(var i=0;i<provs.length;i++){
-      var p = provs[i];
-      var opt2 = document.createElement("option");
+    for(let i=0;i<provs.length;i++){
+      const p = provs[i];
+      const opt2 = document.createElement("option");
       opt2.value = p.nombre;
       opt2.textContent = p.nombre;
       selProv.appendChild(opt2);
     }
   }
 
-  // EVENTOS FORMULARIOS / NAV
   function setupForms(){
-    var solSubmitBtn = document.getElementById("sol-submit-btn");
-    var provSubmitBtn = document.getElementById("prov-submit-btn");
-    var movSubmitBtn = document.getElementById("mov-submit-btn");
+    const solSubmitBtn = document.getElementById("sol-submit-btn");
+    const provSubmitBtn = document.getElementById("prov-submit-btn");
+    const movSubmitBtn = document.getElementById("mov-submit-btn");
 
     // MOVIMIENTOS
     document.getElementById("form-movimiento").addEventListener("submit", function(e){
       e.preventDefault();
-      var materialId = document.getElementById("mov-material").value;
-      var fecha = document.getElementById("mov-fecha").value;
+      const materialId = document.getElementById("mov-material").value;
+      const fecha = document.getElementById("mov-fecha").value;
       if(!materialId || !fecha) return;
 
       if(editingMovimientoKey){
-        var parts = editingMovimientoKey.split("|");
-        var oldMat = parts[0];
-        var oldFecha = parts[1];
-        for(var i=state.movimientos.length-1;i>=0;i--){
+        const parts = editingMovimientoKey.split("|");
+        const oldMat = parts[0];
+        const oldFecha = parts[1];
+        for(let i=state.movimientos.length-1;i>=0;i--){
           if(state.movimientos[i].materialId===oldMat && state.movimientos[i].fecha===oldFecha){
             state.movimientos.splice(i,1);
           }
@@ -1989,21 +2039,21 @@
         editingMovimientoKey = null;
       }
 
-      var manualStock = document.getElementById("mov-manual-stock").checked;
-      var stockInicial;
+      const manualStock = document.getElementById("mov-manual-stock").checked;
+      let stockInicial;
       if(manualStock){
         stockInicial = Number(document.getElementById("mov-stock-inicial").value || 0);
       }else{
         stockInicial = getLastStockBefore(materialId, fecha);
       }
-      var ingresosManual = Number(document.getElementById("mov-ingresos").value || 0);
-      var consumo = Number(document.getElementById("mov-consumo").value || 0);
-      var proveedor = document.getElementById("mov-proveedor").value.trim();
-      var obs = document.getElementById("mov-observaciones").value.trim();
+      const ingresosManual = Number(document.getElementById("mov-ingresos").value || 0);
+      const consumo = Number(document.getElementById("mov-consumo").value || 0);
+      const proveedor = document.getElementById("mov-proveedor").value.trim();
+      const obs = document.getElementById("mov-observaciones").value.trim();
 
-      var ingresosOC = 0;
-      var ingresos = ingresosManual + ingresosOC;
-      var stockFinal = stockInicial + ingresos - consumo;
+      const ingresosOC = 0;
+      const ingresos = ingresosManual + ingresosOC;
+      const stockFinal = stockInicial + ingresos - consumo;
 
       state.movimientos.push({
         materialId:materialId,
@@ -2031,14 +2081,14 @@
     });
 
     document.getElementById("mov-table-body").addEventListener("click", function(e){
-      var btn = e.target.closest("button.btn-sm");
+      const btn = e.target.closest("button.btn-sm");
       if(!btn) return;
-      var materialId = btn.getAttribute("data-material");
-      var fecha = btn.getAttribute("data-fecha");
-      var action = btn.getAttribute("data-action");
-      var key = materialId+"|"+fecha;
-      var mov = null;
-      for(var i=0;i<state.movimientos.length;i++){
+      const materialId = btn.getAttribute("data-material");
+      const fecha = btn.getAttribute("data-fecha");
+      const action = btn.getAttribute("data-action");
+      const key = materialId+"|"+fecha;
+      let mov = null;
+      for(let i=0;i<state.movimientos.length;i++){
         if(state.movimientos[i].materialId===materialId && state.movimientos[i].fecha===fecha){
           mov = state.movimientos[i];break;
         }
@@ -2052,7 +2102,7 @@
         document.getElementById("mov-manual-stock").checked = true;
         document.getElementById("mov-stock-inicial").disabled = false;
         document.getElementById("mov-stock-inicial").value = mov.stockInicial;
-        var ingresosManual = (mov.ingresosManual!==undefined)
+        const ingresosManual = (mov.ingresosManual!==undefined)
           ? mov.ingresosManual
           : Number(mov.ingresos||0) - Number(mov.ingresosOC||0);
         document.getElementById("mov-ingresos").value = ingresosManual;
@@ -2061,7 +2111,7 @@
         document.getElementById("mov-observaciones").value = mov.observaciones||"";
         movSubmitBtn.textContent = "✅ Actualizar movimiento";
       }else if(action==="delete"){
-        for(var j=state.movimientos.length-1;j>=0;j--){
+        for(let j=state.movimientos.length-1;j>=0;j--){
           if(state.movimientos[j].materialId===materialId && state.movimientos[j].fecha===fecha){
             state.movimientos.splice(j,1);
           }
@@ -2094,22 +2144,22 @@
     // SOLICITUDES
     document.getElementById("form-solicitud").addEventListener("submit", function(e){
       e.preventDefault();
-      var materialId = document.getElementById("sol-material").value;
-      var proveedor = document.getElementById("sol-proveedor").value.trim();
-      var cantidadOC = Number(document.getElementById("sol-cant-oc").value || 0);
-      var cantidadReal = Number(document.getElementById("sol-cant-real").value || 0);
-      var fechaEntrega = document.getElementById("sol-entrega").value;
-      var fechaIngreso = document.getElementById("sol-ingreso").value;
-      var oc = document.getElementById("sol-oc").value.trim();
-      var estado = document.getElementById("sol-estado").value;
-      var fechaConfirmacion = document.getElementById("sol-confirmacion").value;
-      var notas = document.getElementById("sol-notas").value.trim();
+      const materialId = document.getElementById("sol-material").value;
+      const proveedor = document.getElementById("sol-proveedor").value.trim();
+      const cantidadOC = Number(document.getElementById("sol-cant-oc").value || 0);
+      const cantidadReal = Number(document.getElementById("sol-cant-real").value || 0);
+      const fechaEntrega = document.getElementById("sol-entrega").value;
+      const fechaIngreso = document.getElementById("sol-ingreso").value;
+      const oc = document.getElementById("sol-oc").value.trim();
+      const estado = document.getElementById("sol-estado").value;
+      const fechaConfirmacion = document.getElementById("sol-confirmacion").value;
+      const notas = document.getElementById("sol-notas").value.trim();
 
       if(!materialId || !proveedor || !cantidadOC || !fechaEntrega) return;
 
       if(editingSolicitudId){
-        var s = null;
-        for(var i=0;i<state.solicitudes.length;i++){
+        let s = null;
+        for(let i=0;i<state.solicitudes.length;i++){
           if(state.solicitudes[i].id===editingSolicitudId){s=state.solicitudes[i];break;}
         }
         if(s){
@@ -2154,27 +2204,27 @@
     });
 
     document.getElementById("sol-table-body").addEventListener("click", function(e){
-      var btn = e.target.closest("button.btn-sm");
+      const btn = e.target.closest("button.btn-sm");
       if(!btn) return;
-      var id = btn.getAttribute("data-id");
-      var action = btn.getAttribute("data-action");
+      const id = btn.getAttribute("data-id");
+      const action = btn.getAttribute("data-action");
       if(action==="edit"){
-        var s = null;
-        for(var i=0;i<state.solicitudes.length;i++){
+        let s = null;
+        for(let i=0;i<state.solicitudes.length;i++){
           if(state.solicitudes[i].id===id){s=state.solicitudes[i];break;}
         }
         if(!s) return;
         editingSolicitudId = id;
         document.getElementById("sol-material").value = s.materialId;
         updateSolicitudProveedoresOptions();
-        var selProv = document.getElementById("sol-proveedor");
+        const selProv = document.getElementById("sol-proveedor");
         if(s.proveedor){
-          var exists = false;
-          for(var o=0;o<selProv.options.length;o++){
+          let exists = false;
+          for(let o=0;o<selProv.options.length;o++){
             if(selProv.options[o].value===s.proveedor){exists=true;break;}
           }
           if(!exists){
-            var extra = document.createElement("option");
+            const extra = document.createElement("option");
             extra.value = s.proveedor;
             extra.textContent = s.proveedor+" (no asociado a esta MP)";
             selProv.appendChild(extra);
@@ -2191,7 +2241,7 @@
         document.getElementById("sol-notas").value = s.notas||"";
         solSubmitBtn.textContent = "✅ Actualizar solicitud";
       }else if(action==="delete"){
-        for(var i=state.solicitudes.length-1;i>=0;i--){
+        for(let i=state.solicitudes.length-1;i>=0;i--){
           if(state.solicitudes[i].id===id){
             state.solicitudes.splice(i,1);
           }
@@ -2215,18 +2265,18 @@
     // PROVEEDORES
     document.getElementById("form-proveedor").addEventListener("submit", function(e){
       e.preventDefault();
-      var nombre = document.getElementById("prov-nombre").value.trim();
-      var cuit = document.getElementById("prov-cuit").value.trim();
-      var contacto = document.getElementById("prov-contacto").value.trim();
-      var telefono = document.getElementById("prov-telefono").value.trim();
-      var email = document.getElementById("prov-email").value.trim();
-      var mp = document.getElementById("prov-mp").value.trim();
-      var notas = document.getElementById("prov-notas").value.trim();
+      const nombre = document.getElementById("prov-nombre").value.trim();
+      const cuit = document.getElementById("prov-cuit").value.trim();
+      const contacto = document.getElementById("prov-contacto").value.trim();
+      const telefono = document.getElementById("prov-telefono").value.trim();
+      const email = document.getElementById("prov-email").value.trim();
+      const mp = document.getElementById("prov-mp").value.trim();
+      const notas = document.getElementById("prov-notas").value.trim();
       if(!nombre) return;
 
       if(editingProveedorId){
-        var p = null;
-        for(var i=0;i<state.proveedores.length;i++){
+        let p = null;
+        for(let i=0;i<state.proveedores.length;i++){
           if(state.proveedores[i].id===editingProveedorId){p=state.proveedores[i];break;}
         }
         if(p){
@@ -2259,13 +2309,13 @@
     });
 
     document.getElementById("prov-table-body").addEventListener("click", function(e){
-      var btn = e.target.closest("button.btn-sm");
+      const btn = e.target.closest("button.btn-sm");
       if(!btn) return;
-      var id = btn.getAttribute("data-id");
-      var action = btn.getAttribute("data-action");
+      const id = btn.getAttribute("data-id");
+      const action = btn.getAttribute("data-action");
       if(action==="edit"){
-        var p = null;
-        for(var i=0;i<state.proveedores.length;i++){
+        let p = null;
+        for(let i=0;i<state.proveedores.length;i++){
           if(state.proveedores[i].id===id){p=state.proveedores[i];break;}
         }
         if(!p) return;
@@ -2279,7 +2329,7 @@
         document.getElementById("prov-notas").value = p.notas||"";
         provSubmitBtn.textContent = "✅ Actualizar proveedor";
       }else if(action==="delete"){
-        for(var i=state.proveedores.length-1;i>=0;i--){
+        for(let i=state.proveedores.length-1;i>=0;i--){
           if(state.proveedores[i].id===id){
             state.proveedores.splice(i,1);
           }
@@ -2299,16 +2349,16 @@
     document.getElementById("btn-save-config").addEventListener("click", saveConfigFromTable);
 
     // NAV
-    var navBtns = document.querySelectorAll(".nav-btn");
-    for(var n=0;n<navBtns.length;n++){
+    const navBtns = document.querySelectorAll(".nav-btn");
+    for(let n=0;n<navBtns.length;n++){
       navBtns[n].addEventListener("click", function(){
-        for(var k=0;k<navBtns.length;k++){
+        for(let k=0;k<navBtns.length;k++){
           navBtns[k].classList.remove("active");
         }
         this.classList.add("active");
-        var view = this.getAttribute("data-view");
-        var views = document.querySelectorAll(".view");
-        for(var v=0;v<views.length;v++){
+        const view = this.getAttribute("data-view");
+        const views = document.querySelectorAll(".view");
+        for(let v=0;v<views.length;v++){
           views[v].style.display = "none";
         }
         document.getElementById("view-"+view).style.display = "block";
@@ -2322,11 +2372,10 @@
     }
   }
 
-  // RELOJ
   function startClock(){
-    var el = document.getElementById("clock");
+    const el = document.getElementById("clock");
     function tick(){
-      var now = new Date();
+      const now = new Date();
       try{
         el.textContent = now.toLocaleString("es-AR");
       }catch(e){
@@ -2337,7 +2386,6 @@
     setInterval(tick,1000);
   }
 
-  // INIT
   function initApp(){
     initMaterialSelects();
     renderConfigTable();
@@ -2347,9 +2395,9 @@
     renderSolicitudesTable();
     renderProveedores();
 
-    var dateInputs = document.querySelectorAll('input[type="date"]');
-    var today = todayIso();
-    for(var i=0;i<dateInputs.length;i++){
+    const dateInputs = document.querySelectorAll('input[type="date"]');
+    const today = todayIso();
+    for(let i=0;i<dateInputs.length;i++){
       if(!dateInputs[i].value) dateInputs[i].value = today;
     }
 
@@ -2361,11 +2409,16 @@
   // ARRANQUE
   setupLoginUI();
   setupForms();
-  tryAutoLogin();
-  if(currentUser){
-    initApp();
-  }
+
+  onAuthStateChanged(auth, async (user) => {
+    if(user){
+      setUser(user);
+      await loadStateFromFirebase();
+      initApp();
+    }else{
+      setUser(null);
+    }
+  });
 </script>
 </body>
 </html>
-
