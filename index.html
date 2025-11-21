@@ -1,2430 +1,412 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>🛢️ Control de Graneles – Victoria</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>IA Coder by Vallozzi (One-File Edition)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    :root{
-      --bg:#020617;
-      --bg-soft:#020617;
-      --panel:#020617;
-      --card:#020617;
-      --accent:#38bdf8;
-      --accent-soft:#0ea5e9;
-      --text:#e5e7eb;
-      --muted:#9ca3af;
-      --danger:#ef4444;
-      --ok:#22c55e;
-      --warn:#facc15;
-      --border:#1f2937;
-    }
-    *{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-    body{
-      background:radial-gradient(circle at top,rgba(56,189,248,0.08),transparent 55%),var(--bg);
-      color:var(--text);
-      min-height:100vh;
-      display:flex;
-      flex-direction:column;
+    :root {
+      --bg: #020617;
+      --card: #020617;
+      --border: #1e293b;
+      --accent: #22c55e;
+      --accent-soft: rgba(34, 197, 94, 0.2);
+      --text: #e5e7eb;
+      --muted: #9ca3af;
     }
 
-    /* LOGIN */
-    #login-screen{
-      position:fixed;
-      inset:0;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      background:radial-gradient(circle at top,rgba(56,189,248,0.1),rgba(15,23,42,0.98));
-      z-index:50;
-    }
-    .login-card{
-      background:rgba(15,23,42,0.98);
-      border-radius:18px;
-      padding:20px 18px 18px;
-      border:1px solid rgba(148,163,184,0.4);
-      width:100%;
-      max-width:340px;
-      box-shadow:0 24px 60px rgba(0,0,0,0.8);
-    }
-    .login-title{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      margin-bottom:4px;
-      font-size:16px;
-      font-weight:600;
-    }
-    .login-pill{
-      width:30px;
-      height:30px;
-      border-radius:999px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      border:1px solid rgba(148,163,184,0.5);
-      background:radial-gradient(circle at 30% 0%,rgba(56,189,248,0.9),transparent 60%);
-    }
-    .login-sub{
-      font-size:12px;
-      color:var(--muted);
-      margin-bottom:12px;
-    }
-    .login-card label{
-      font-size:11px;
-      color:var(--muted);
-      display:block;
-      margin-bottom:3px;
-    }
-    .login-card input{
-      width:100%;
-      padding:8px 8px;
-      border-radius:10px;
-      border:1px solid var(--border);
-      background:rgba(15,23,42,0.9);
-      color:var(--text);
-      font-size:13px;
-      outline:none;
-      margin-bottom:8px;
-    }
-    .login-card input:focus{
-      border-color:var(--accent);
-      box-shadow:0 0 0 1px rgba(56,189,248,0.3);
-    }
-    .login-btn{
-      border:none;
-      border-radius:999px;
-      padding:8px 14px;
-      font-size:13px;
-      cursor:pointer;
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      background:linear-gradient(to right,var(--accent-soft),var(--accent));
-      color:#020617;
-      font-weight:600;
-      width:100%;
-      justify-content:center;
-      margin-top:4px;
-    }
-    .login-error{
-      font-size:11px;
-      color:var(--danger);
-      margin-top:6px;
-      min-height:14px;
-    }
-    .login-hint{
-      font-size:10px;
-      color:var(--muted);
-      margin-top:6px;
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
-    /* APP SHELL */
-    header{
-      padding:12px 20px;
-      border-bottom:1px solid var(--border);
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      backdrop-filter:blur(16px);
-      background:linear-gradient(to right,rgba(15,23,42,0.95),rgba(15,23,42,0.7));
-      position:sticky;
-      top:0;
-      z-index:20;
-    }
-    header h1{
-      font-size:18px;
-      display:flex;
-      align-items:center;
-      gap:8px;
-      font-weight:600;
-    }
-    header h1 span.logo-pill{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      width:28px;
-      height:28px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,0.4);
-      font-size:16px;
-      background:radial-gradient(circle at 30% 0%,rgba(56,189,248,0.8),transparent 60%);
-    }
-    header .subtitle{
-      font-size:12px;
-      color:var(--muted);
-    }
-    header .user-info{
-      display:flex;
-      flex-direction:column;
-      align-items:flex-end;
-      gap:4px;
-      font-size:11px;
-      color:var(--muted);
-    }
-    .user-pill{
-      font-size:11px;
-      padding:3px 8px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,0.4);
-      display:inline-flex;
-      align-items:center;
-      gap:4px;
-    }
-    .user-pill span.icon{font-size:13px;}
-    #clock{
-      font-size:11px;
-      padding:3px 8px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,0.4);
-      background:rgba(15,23,42,0.8);
-      color:var(--muted);
+    body {
+      min-height: 100vh;
+      background: radial-gradient(circle at top, #0f172a 0, #020617 45%, #020617 100%);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
     }
 
-    main{
-      flex:1;
-      display:flex;
-      min-height:0;
+    .app {
+      width: 100%;
+      max-width: 1100px;
+      background: rgba(15, 23, 42, 0.96);
+      border-radius: 20px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.75);
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.3fr);
+      overflow: hidden;
     }
-    .sidebar{
-      width:230px;
-      border-right:1px solid var(--border);
-      padding:16px 10px;
-      background:radial-gradient(circle at top,rgba(15,23,42,0.9),rgba(15,23,42,1));
+
+    @media (max-width: 900px) {
+      .app {
+        grid-template-columns: minmax(0, 1fr);
+      }
     }
-    .sidebar h2{
-      font-size:13px;
-      color:var(--muted);
-      margin-bottom:8px;
-      padding:0 8px;
-      text-transform:uppercase;
-      letter-spacing:.08em;
+
+    .left {
+      padding: 20px 22px;
+      border-right: 1px solid rgba(30, 64, 175, 0.4);
+      background: radial-gradient(circle at top left, rgba(34, 197, 94, 0.14), transparent 60%);
     }
-    .nav-btn{
-      width:100%;
-      border:none;
-      background:transparent;
-      color:var(--muted);
-      text-align:left;
-      padding:8px 10px;
-      border-radius:10px;
-      margin-bottom:4px;
-      font-size:13px;
-      display:flex;
-      align-items:center;
-      gap:8px;
-      cursor:pointer;
-      transition:.15s ease all;
+
+    .right {
+      padding: 20px 22px;
+      background: radial-gradient(circle at top right, rgba(56, 189, 248, 0.12), transparent 60%);
     }
-    .nav-btn span.icon{font-size:16px;}
-    .nav-btn:hover{
-      background:rgba(15,23,42,0.9);
-      color:var(--text);
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
     }
-    .nav-btn.active{
-      background:linear-gradient(to right,var(--accent-soft),var(--accent));
-      color:#0b1120;
-      font-weight:600;
+
+    .logo {
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      background: radial-gradient(circle at 0 0, #22c55e, #16a34a);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      color: #ecfdf5;
+      font-size: 16px;
+      box-shadow: 0 10px 30px rgba(34, 197, 94, 0.7);
     }
-    .content{
-      flex:1;
-      padding:16px;
-      overflow:auto;
+
+    .brand-title {
+      font-weight: 700;
+      font-size: 17px;
+      letter-spacing: 0.04em;
     }
-    .section-title{
-      font-size:16px;
-      font-weight:600;
-      margin-bottom:4px;
-      display:flex;
-      align-items:center;
-      gap:8px;
+
+    .brand-sub {
+      font-size: 12px;
+      color: var(--muted);
     }
-    .section-subtitle{
-      font-size:12px;
-      color:var(--muted);
-      margin-bottom:14px;
+
+    h2 {
+      font-size: 18px;
+      margin-bottom: 6px;
     }
-    .layout-2col{
-      display:grid;
-      grid-template-columns:1.2fr 1fr;
-      gap:16px;
+
+    p {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 10px;
     }
-    @media(max-width:900px){
-      .sidebar{display:none;}
-      .content{padding:10px;}
-      .layout-2col{grid-template-columns:1fr;}
-      header{flex-wrap:wrap;}
+
+    label {
+      display: block;
+      font-size: 12px;
+      margin-bottom: 4px;
+      color: #cbd5f5;
     }
-    .card{
-      background:radial-gradient(circle at top left,rgba(56,189,248,0.08),transparent 55%),rgba(15,23,42,0.98);
-      border-radius:14px;
-      padding:14px;
-      border:1px solid rgba(15,23,42,0.9);
-      box-shadow:0 18px 45px rgba(15,23,42,0.8);
+
+    textarea {
+      width: 100%;
+      min-height: 140px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.9);
+      padding: 10px 12px;
+      color: var(--text);
+      font-size: 13px;
+      resize: vertical;
+      outline: none;
+      margin-bottom: 8px;
     }
-    .card-header{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      margin-bottom:10px;
-      gap:8px;
+
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent-soft);
     }
-    .card-title{
-      font-size:14px;
-      font-weight:600;
-      display:flex;
-      align-items:center;
-      gap:6px;
+
+    input, select {
+      width: 100%;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.9);
+      padding: 8px 12px;
+      color: var(--text);
+      font-size: 12px;
+      outline: none;
+      margin-bottom: 8px;
     }
-    .card-title small{
-      font-size:11px;
-      color:var(--muted);
-      font-weight:400;
+
+    input:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent-soft);
     }
-    .badge{
-      font-size:11px;
-      padding:3px 8px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,0.4);
-      color:var(--muted);
-      display:inline-flex;
-      align-items:center;
-      gap:4px;
+
+    button {
+      border-radius: 999px;
+      border: none;
+      padding: 9px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: #022c22;
+      box-shadow: 0 10px 26px rgba(34, 197, 94, 0.55);
     }
-    .badge.ok{
-      border-color:rgba(34,197,94,0.5);
-      color:var(--ok);
-      background:rgba(22,163,74,0.08);
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: default;
+      box-shadow: none;
     }
-    .badge.warn{
-      border-color:rgba(250,204,21,0.5);
-      color:var(--warn);
-      background:rgba(234,179,8,0.08);
+
+    .hint {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 4px;
     }
-    .badge.danger{
-      border-color:rgba(248,113,113,0.6);
-      color:var(--danger);
-      background:rgba(248,113,113,0.08);
+
+    .output-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
     }
-    .grid-3{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
+
+    .tag {
+      font-size: 11px;
+      border-radius: 999px;
+      padding: 4px 9px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      color: var(--muted);
     }
-    .metric{
-      padding:10px;
-      border-radius:12px;
-      border:1px solid var(--border);
-      background:radial-gradient(circle at top,rgba(15,23,42,0.9),rgba(15,23,42,0.96));
+
+    pre {
+      background: #020617;
+      border-radius: 12px;
+      border: 1px solid rgba(30, 64, 175, 0.6);
+      padding: 10px 12px;
+      max-height: 380px;
+      overflow: auto;
+      font-size: 12px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
-    .metric-label{
-      font-size:11px;
-      color:var(--muted);
-      margin-bottom:4px;
-      display:flex;
-      justify-content:space-between;
+
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
     }
-    .metric-value{
-      font-size:18px;
-      font-weight:600;
-      display:flex;
-      align-items:baseline;
-      gap:4px;
-    }
-    .metric-value span.unit{
-      font-size:11px;
-      color:var(--muted);
-      font-weight:400;
-    }
-    .metric-extra{
-      font-size:11px;
-      color:var(--muted);
-      margin-top:4px;
-    }
-    .progress-bar{
-      margin-top:6px;
-      width:100%;
-      height:8px;
-      border-radius:999px;
-      background:#020617;
-      overflow:hidden;
-      border:1px solid #020617;
-    }
-    .progress-fill{
-      height:100%;
-      border-radius:999px;
-      background:linear-gradient(to right,var(--accent-soft),var(--accent));
-      width:0%;
-      transition:width .3s ease;
-    }
-    .form-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-    }
-    @media(max-width:700px){
-      .form-grid{grid-template-columns:1fr;}
-    }
-    label{
-      font-size:11px;
-      color:var(--muted);
-      display:block;
-      margin-bottom:3px;
-    }
-    input,select,textarea{
-      width:100%;
-      padding:8px 8px;
-      border-radius:10px;
-      border:1px solid var(--border);
-      background:rgba(15,23,42,0.9);
-      color:var(--text);
-      font-size:13px;
-      outline:none;
-    }
-    input:focus,select:focus,textarea:focus{
-      border-color:var(--accent);
-      box-shadow:0 0 0 1px rgba(56,189,248,0.3);
-    }
-    textarea{resize:vertical;min-height:60px;}
-    button.btn{
-      border:none;
-      border-radius:999px;
-      padding:8px 14px;
-      font-size:13px;
-      cursor:pointer;
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      background:linear-gradient(to right,var(--accent-soft),var(--accent));
-      color:#020617;
-      font-weight:600;
-    }
-    button.btn.secondary{
-      background:transparent;
-      color:var(--muted);
-      border:1px solid var(--border);
-    }
-    button.btn:active{transform:scale(.98);}
-    .btn-row{
-      display:flex;
-      justify-content:flex-end;
-      gap:8px;
-      margin-top:10px;
-    }
-    table{
-      width:100%;
-      border-collapse:collapse;
-      font-size:11.5px;
-      margin-top:6px;
-    }
-    th,td{
-      padding:6px 6px;
-      border-bottom:1px solid rgba(31,41,55,0.9);
-      text-align:left;
-      white-space:nowrap;
-    }
-    th{
-      font-size:11px;
-      color:var(--muted);
-      text-transform:uppercase;
-      letter-spacing:.06em;
-    }
-    tr:hover td{
-      background:rgba(15,23,42,0.95);
-    }
-    .table-wrapper{
-      margin-top:4px;
-      max-height:260px;
-      overflow:auto;
-      border-radius:10px;
-      border:1px solid #020617;
-      background:rgba(15,23,42,0.95);
-    }
-    .chip{
-      padding:3px 8px;
-      border-radius:999px;
-      font-size:11px;
-      border:1px solid rgba(148,163,184,0.4);
-      color:var(--muted);
-      display:inline-flex;
-      align-items:center;
-      gap:4px;
-    }
-    .chip.pending{border-color:rgba(250,204,21,0.7);color:var(--warn);}
-    .chip.confirmed{border-color:rgba(56,189,248,0.7);color:var(--accent-soft);}
-    .chip.delivered{border-color:rgba(34,197,94,0.7);color:var(--ok);}
-    .material-select-row{
-      display:flex;
-      gap:8px;
-      align-items:center;
-      margin-bottom:10px;
-    }
-    .material-select-row select{
-      max-width:260px;
-    }
-    .helper-text{
-      font-size:11px;
-      color:var(--muted);
-      margin-top:2px;
-    }
-    .empty-state{
-      font-size:12px;
-      color:var(--muted);
-      padding:8px 0;
-    }
-    .tag-mini{
-      padding:2px 6px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,0.4);
-      font-size:10px;
-      color:var(--muted);
-    }
-    .weekly-table thead th{
-      position:sticky;
-      top:0;
-      background:#020617;
-      z-index:1;
-    }
-    .alert-text-strong{
-      font-weight:600;
-      color:var(--danger);
-    }
-    .btn-sm{
-      font-size:10px;
-      padding:3px 6px;
-      border-radius:999px;
-      border:1px solid var(--border);
-      background:transparent;
-      color:var(--muted);
-      cursor:pointer;
-      margin-right:4px;
-    }
-    .btn-sm.danger{
-      border-color:rgba(248,113,113,0.6);
-      color:var(--danger);
+
+    .btn-secondary {
+      background: rgba(15, 23, 42, 0.98);
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      color: var(--muted);
+      box-shadow: none;
+      padding: 8px 14px;
+      font-size: 12px;
     }
   </style>
 </head>
 <body>
+  <div class="app">
+    <div class="left">
+      <div class="brand">
+        <div class="logo">V</div>
+        <div>
+          <div class="brand-title">IA Coder Studio</div>
+          <div class="brand-sub">Pedile apps igual que a ChatGPT</div>
+        </div>
+      </div>
 
-<!-- LOGIN -->
-<div id="login-screen">
-  <div class="login-card">
-    <div class="login-title">
-      <div class="login-pill">🛢️</div>
-      Control de Graneles – Login
+      <h2>¿Qué app querés que te programe?</h2>
+      <p>Ejemplo: “Haceme una app web para control de stock de maxikiosco con tabla editable y localStorage”.</p>
+
+      <label for="apiKey">API Key de OpenAI (se usa solo en tu navegador)</label>
+      <input id="apiKey" type="password" placeholder="Pegá acá tu API key..." />
+
+      <label for="prompt">Descripción de la app</label>
+      <textarea id="prompt" placeholder="Escribí igual que cuando me pedís apps a mí..."></textarea>
+
+      <label for="lenguaje">Lenguaje / tipo de salida</label>
+      <select id="lenguaje">
+        <option value="HTML + CSS + JS" selected>App Web (HTML + CSS + JS en un archivo)</option>
+        <option value="React">Frontend en React</option>
+        <option value="Node.js">Backend en Node.js (Express)</option>
+        <option value="Python">Script en Python</option>
+      </select>
+
+      <div style="margin-top: 8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <button id="generateBtn">
+          ⚡ Generar código
+        </button>
+        <span id="status" class="hint"></span>
+      </div>
+
+      <div class="hint">
+        Tu API key queda en tu navegador. No la guardes en servidores públicos ni compartas este HTML ya configurado.
+      </div>
     </div>
-    <div class="login-sub">Ingresá con tu usuario para manejar los graneles de Victoria.</div>
-    <label for="login-user">Usuario</label>
-    <input id="login-user" autocomplete="username" />
-    <label for="login-pass">Contraseña</label>
-    <input id="login-pass" type="password" autocomplete="current-password" />
-    <button class="login-btn" id="login-btn">Entrar</button>
-    <div id="login-error" class="login-error"></div>
-    <div class="login-hint">
-      Demo: <strong>pcp / pcp123</strong>, <strong>deposito / dep123</strong>, <strong>produccion / prod123</strong>.
+
+    <div class="right">
+      <div class="output-header">
+        <div>
+          <h2>Salida de la IA</h2>
+          <p>Código listo para copiar, pegar y probar.</p>
+        </div>
+        <div class="tag">Modo: Dev IA</div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn-secondary" id="copyBtn">📋 Copiar código</button>
+        <button class="btn-secondary" id="downloadBtn">💾 Descargar .txt</button>
+      </div>
+
+      <pre id="output"><code>// Acá va a aparecer el código generado por tu IA programadora...</code></pre>
     </div>
   </div>
-</div>
 
-<!-- APP -->
-<div id="app-shell" style="display:none;">
-  <header>
-    <div>
-      <h1>
-        <span class="logo-pill">🛢️</span>
-        Control de Graneles – Victoria
-      </h1>
-      <div class="subtitle">Clara · Glucosa · Azúcar · Maní – 100% fuera de Excel 😎</div>
-    </div>
-    <div class="user-info">
-      <span id="user-pill" class="user-pill">
-        <span class="icon">👤</span>
-        <span id="user-name">–</span>
-      </span>
-      <div id="clock">--/--/---- --:--</div>
-      <span class="tag-mini">Datos guardados en Firebase + este navegador</span>
-    </div>
-  </header>
+  <script>
+    const apiKeyEl = document.getElementById("apiKey");
+    const promptEl = document.getElementById("prompt");
+    const lenguajeEl = document.getElementById("lenguaje");
+    const generateBtn = document.getElementById("generateBtn");
+    const statusEl = document.getElementById("status");
+    const outputEl = document.getElementById("output");
+    const copyBtn = document.getElementById("copyBtn");
+    const downloadBtn = document.getElementById("downloadBtn");
 
-  <main>
-    <aside class="sidebar">
-      <h2>Panel</h2>
-      <button class="nav-btn active" data-view="dashboard">
-        <span class="icon">📊</span> Dashboard & Stock
-      </button>
-      <button class="nav-btn" data-view="movimientos">
-        <span class="icon">📈</span> Movimientos diarios
-      </button>
-      <button class="nav-btn" data-view="solicitudes">
-        <span class="icon">📑</span> Solicitudes & OC
-      </button>
-      <button class="nav-btn" data-view="proveedores">
-        <span class="icon">🏭</span> Proveedores
-      </button>
-      <button class="nav-btn" data-view="config">
-        <span class="icon">⚙️</span> Configuración MP
-      </button>
-    </aside>
+    async function generateCode() {
+      const apiKey = apiKeyEl.value.trim();
+      const prompt = promptEl.value.trim();
+      const lenguaje = lenguajeEl.value;
 
-    <section class="content">
-      <!-- DASHBOARD -->
-      <div id="view-dashboard" class="view">
-        <div class="section-title">📊 Dashboard de stock</div>
-        <div class="section-subtitle">
-          Elegí una materia prima, ves stock actual, % ocupación del <strong>almacén</strong>, días de stock y alertas.
-          El consumo diario se carga en <strong>📈 Movimientos</strong>.  
-          Los días de stock se calculan con el <strong>promedio real de consumo de la semana</strong>.
-        </div>
-
-        <div class="material-select-row">
-          <label for="dash-material">Materia prima</label>
-          <select id="dash-material"></select>
-          <span class="helper-text">
-            Parámetros y mínimos se configuran en ⚙️ Configuración. Si varias MP comparten almacén, usá el mismo
-            <strong>“Grupo almacén”</strong>.
-          </span>
-        </div>
-        <div class="layout-2col">
-          <div class="card" id="card-dashboard-main">
-            <div class="card-header">
-              <div class="card-title">
-                🌡️ Estado de stock
-                <small id="dash-material-label"></small>
-              </div>
-              <span id="dash-status-badge" class="badge">Sin datos</span>
-            </div>
-            <div class="grid-3">
-              <div class="metric">
-                <div class="metric-label">
-                  <span>Stock almacén (grupo)</span>
-                  <span id="dash-stock-date" class="tag-mini">–</span>
-                </div>
-                <div class="metric-value">
-                  <span id="dash-stock-actual">0</span>
-                  <span class="unit" id="dash-unit"></span>
-                </div>
-                <div class="metric-extra">
-                  Capacidad almacén: <span id="dash-capacidad">0</span> <span id="dash-unit-2"></span>
-                </div>
-                <div class="progress-bar">
-                  <div id="dash-progress-fill" class="progress-fill"></div>
-                </div>
-              </div>
-              <div class="metric">
-                <div class="metric-label">
-                  <span>Días de stock (MP)</span>
-                  <span class="tag-mini">Consumo promedio semana actual</span>
-                </div>
-                <div class="metric-value">
-                  <span id="dash-dias-stock">–</span>
-                  <span class="unit">días</span>
-                </div>
-                <div class="metric-extra">
-                  Mínimo deseado: <span id="dash-min-dias">–</span> días
-                </div>
-              </div>
-              <div class="metric">
-                <div class="metric-label">
-                  <span>Consumo promedio semanal (MP)</span>
-                </div>
-                <div class="metric-value">
-                  <span id="dash-consumo-ref">–</span>
-                  <span class="unit" id="dash-unit-3"></span>
-                </div>
-                <div class="metric-extra" id="dash-alert-text">Cargá movimientos y solicitudes para ver sugerencias.</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-header">
-              <div class="card-title">
-                📅 Últimos movimientos (MP)
-                <small>Para la materia prima seleccionada</small>
-              </div>
-            </div>
-            <div class="table-wrapper" id="dash-movimientos-wrapper">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    <th>Stock inicial</th>
-                    <th>Ingresos</th>
-                    <th>Consumo</th>
-                    <th>Stock final</th>
-                    <th>Proveedor</th>
-                  </tr>
-                </thead>
-                <tbody id="dash-movimientos-body"></tbody>
-              </table>
-            </div>
-            <div id="dash-empty" class="empty-state" style="display:none;">
-              Todavía no hay movimientos cargados para esta materia prima.
-            </div>
-          </div>
-        </div>
-
-        <!-- VISTA SEMANAL -->
-        <div style="margin-top:16px;">
-          <div class="card">
-            <div class="card-header">
-              <div class="card-title">
-                📆 Vista semanal & OJO ALERTA (MP)
-                <small>Basado en consumo promedio de la semana + OC confirmadas/recibidas</small>
-              </div>
-              <div>
-                <label style="font-size:11px;color:var(--muted);margin-right:4px;">Semana que inicia</label>
-                <input type="date" id="week-start-date" style="max-width:150px;font-size:11px;padding:4px 6px;">
-              </div>
-            </div>
-            <div class="helper-text">
-              Usá el módulo 📈 Movimientos para cargar <strong>consumo diario</strong>.  
-              Desde que una OC está <strong>CONFIRMADA</strong>, la ves en la semana (cantidad pedida).  
-              Cuando pasa a <strong>ENTREGADA</strong>, se muestra la cantidad real ingresada.  
-              Los días de stock se calculan con el <strong>promedio real semanal</strong>.
-            </div>
-            <div class="table-wrapper">
-              <table class="weekly-table">
-                <thead>
-                  <tr>
-                    <th>Día</th>
-                    <th>Fecha</th>
-                    <th>Stock inicial</th>
-                    <th>Ingresos</th>
-                    <th>Consumo</th>
-                    <th>Stock final</th>
-                    <th>Días stock</th>
-                    <th>Alerta</th>
-                  </tr>
-                </thead>
-                <tbody id="week-table-body"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- MOVIMIENTOS -->
-      <div id="view-movimientos" class="view" style="display:none;">
-        <div class="section-title">📈 Movimientos diarios de stock</div>
-        <div class="section-subtitle">
-          Cargá consumos y ajustes. Los ingresos vienen principalmente desde 📑 Solicitudes cuando confirmás el ingreso,
-          pero podés hacer ingresos manuales si necesitás corregir.
-        </div>
-
-        <div class="layout-2col">
-          <div class="card">
-            <div class="card-header">
-              <div class="card-title">
-                ➕ Nuevo / Editar movimiento
-                <small>Registro diario</small>
-              </div>
-            </div>
-            <form id="form-movimiento">
-              <div class="form-grid">
-                <div>
-                  <label>Materia prima</label>
-                  <select id="mov-material" required></select>
-                </div>
-                <div>
-                  <label>Fecha</label>
-                  <input type="date" id="mov-fecha" required />
-                  <div class="helper-text">Se usa una fecha por día y materia prima.</div>
-                </div>
-                <div>
-                  <label>Stock inicial (auto / real)</label>
-                  <input type="number" step="0.01" id="mov-stock-inicial" disabled />
-                  <div class="helper-text">
-                    Por defecto usa el último stock final del día anterior. Podés corregirlo con stock real.
-                  </div>
-                </div>
-                <div>
-                  <label style="visibility:hidden;">.</label>
-                  <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
-                    <input type="checkbox" id="mov-manual-stock" style="width:auto;">
-                    <span class="helper-text">Cargar stock real manualmente</span>
-                  </div>
-                </div>
-                <div>
-                  <label>Ingresos (manuales)</label>
-                  <input type="number" step="0.01" id="mov-ingresos" value="0" />
-                  <div class="helper-text">Los ingresos de OC entran solos desde 📑 Solicitudes.</div>
-                </div>
-                <div>
-                  <label>Consumo del día</label>
-                  <input type="number" step="0.01" id="mov-consumo" value="0" />
-                </div>
-                <div>
-                  <label>Proveedor</label>
-                  <input list="proveedores-list" id="mov-proveedor" placeholder="AGD, Glucovil, etc." />
-                </div>
-                <div style="grid-column:1/-1;">
-                  <label>Observaciones</label>
-                  <textarea id="mov-observaciones" placeholder="Notas de línea, paradas, desvíos, etc."></textarea>
-                </div>
-              </div>
-              <div class="btn-row">
-                <button type="submit" class="btn" id="mov-submit-btn">
-                  💾 Guardar movimiento
-                </button>
-              </div>
-            </form>
-          </div>
-
-          <div class="card">
-            <div class="card-header">
-              <div class="card-title">
-                📜 Movimientos por materia prima
-                <small>Histórico</small>
-              </div>
-            </div>
-            <div class="material-select-row">
-              <label for="mov-list-material">Materia prima</label>
-              <select id="mov-list-material"></select>
-            </div>
-            <div class="table-wrapper">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    <th>Stock inicial</th>
-                    <th>Ingresos</th>
-                    <th>Consumo</th>
-                    <th>Stock final</th>
-                    <th>Días stock (semana)</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody id="mov-table-body"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- SOLICITUDES -->
-      <div id="view-solicitudes" class="view" style="display:none;">
-        <div class="section-title">📑 Solicitudes, OC & entregas</div>
-        <div class="section-subtitle">
-          La idea: cargás OC con cantidad pedida (ya se ve en la tabla y en la vista semanal cuando está confirmada),
-          y cuando llega el camión cargás <strong>cantidad real</strong> + <strong>fecha ingreso real</strong> y marcás
-          <strong>Entregada</strong>. Ahí la app genera el ingreso en stock.
-        </div>
-
-        <div class="layout-2col">
-          <div class="card">
-            <div class="card-header">
-              <div class="card-title">
-                ➕ Nueva / Editar solicitud / OC
-              </div>
-            </div>
-            <form id="form-solicitud">
-              <div class="form-grid">
-                <div>
-                  <label>Materia prima</label>
-                  <select id="sol-material" required></select>
-                </div>
-                <div>
-                  <label>Proveedor</label>
-                  <select id="sol-proveedor" required></select>
-                  <div class="helper-text">
-                    Filtra por <strong>Tipo MP</strong> de la materia prima (campo “Tipo MP” en Config).
-                  </div>
-                </div>
-                <div>
-                  <label>Cantidad OC (pedida)</label>
-                  <input type="number" step="0.01" id="sol-cant-oc" required />
-                </div>
-                <div>
-                  <label>Cantidad real ingresada</label>
-                  <input type="number" step="0.01" id="sol-cant-real" />
-                  <div class="helper-text">Usada para el ingreso real. Si está vacía, se asume 0.</div>
-                </div>
-                <div>
-                  <label>Fecha entrega esperada</label>
-                  <input type="date" id="sol-entrega" required />
-                </div>
-                <div>
-                  <label>Fecha ingreso real</label>
-                  <input type="date" id="sol-ingreso" />
-                </div>
-                <div>
-                  <label>Estado</label>
-                  <select id="sol-estado">
-                    <option value="pendiente">Pendiente</option>
-                    <option value="confirmada">Confirmada proveedor</option>
-                    <option value="entregada">Entregada / Ingresada</option>
-                  </select>
-                </div>
-                <div>
-                  <label>N° OC / Referencia</label>
-                  <input type="text" id="sol-oc" placeholder="OC, contrato, PO Mondelez, etc." />
-                </div>
-                <div>
-                  <label>Fecha confirmación proveedor</label>
-                  <input type="date" id="sol-confirmacion" />
-                </div>
-                <div style="grid-column:1/-1;">
-                  <label>Notas</label>
-                  <textarea id="sol-notas" placeholder="Saldo contrato, días de stock objetivo, etc."></textarea>
-                </div>
-              </div>
-              <div class="btn-row">
-                <button type="submit" class="btn" id="sol-submit-btn">
-                  📥 Guardar solicitud
-                </button>
-              </div>
-            </form>
-          </div>
-
-          <div class="card">
-            <div class="card-header">
-              <div class="card-title">
-                📚 Listado de solicitudes
-              </div>
-            </div>
-            <div class="table-wrapper">
-              <table>
-                <thead>
-                  <tr>
-                    <th>MP</th>
-                    <th>Proveedor</th>
-                    <th>Qty OC</th>
-                    <th>Qty Ing.</th>
-                    <th>F. Entrega</th>
-                    <th>F. Ingreso</th>
-                    <th>OC</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody id="sol-table-body"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- PROVEEDORES -->
-      <div id="view-proveedores" class="view" style="display:none;">
-        <div class="section-title">🏭 Proveedores de materias primas</div>
-        <div class="section-subtitle">
-          Cargá los proveedores habituales. Asignales los <strong>Tipos de MP</strong> que abastecen (tienen que
-          coincidir con “Tipo MP” en Configuración).
-        </div>
-
-        <div class="layout-2col">
-          <div class="card">
-            <div class="card-header">
-              <div class="card-title">➕ Nuevo / Editar proveedor</div>
-            </div>
-            <form id="form-proveedor">
-              <div class="form-grid">
-                <div>
-                  <label>Nombre</label>
-                  <input type="text" id="prov-nombre" placeholder="Glucovil, AGD, etc." required />
-                </div>
-                <div>
-                  <label>CUIT</label>
-                  <input type="text" id="prov-cuit" placeholder="xx-xxxxxxxx-x" />
-                </div>
-                <div>
-                  <label>Contacto</label>
-                  <input type="text" id="prov-contacto" placeholder="Nombre contacto" />
-                </div>
-                <div>
-                  <label>Teléfono</label>
-                  <input type="text" id="prov-telefono" placeholder="+54..." />
-                </div>
-                <div>
-                  <label>Email</label>
-                  <input type="email" id="prov-email" placeholder="mail@proveedor.com" />
-                </div>
-                <div>
-                  <label>Tipos de MP (coinciden con “Tipo MP”)</label>
-                  <input type="text" id="prov-mp" placeholder="GLUCOSA, MANÍ, AZÚCAR..." />
-                </div>
-                <div style="grid-column:1/-1;">
-                  <label>Notas</label>
-                  <textarea id="prov-notas"></textarea>
-                </div>
-              </div>
-              <div class="btn-row">
-                <button type="submit" class="btn" id="prov-submit-btn">💾 Guardar proveedor</button>
-              </div>
-            </form>
-          </div>
-
-          <div class="card">
-            <div class="card-header">
-              <div class="card-title">📋 Listado de proveedores</div>
-            </div>
-            <div class="table-wrapper">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Nombre</th>
-                    <th>CUIT</th>
-                    <th>Contacto</th>
-                    <th>Teléfono</th>
-                    <th>Tipos MP</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody id="prov-table-body"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- datalist usado por otros módulos -->
-        <datalist id="proveedores-list"></datalist>
-      </div>
-
-      <!-- CONFIG -->
-      <div id="view-config" class="view" style="display:none;">
-        <div class="section-title">⚙️ Configuración de materias primas</div>
-        <div class="section-subtitle">
-          Definí capacidad, consumo de referencia, días mínimos de stock, <strong>Grupo almacén</strong> y
-          <strong>Tipo MP</strong>.  
-          El Tipo MP es el que se usa para vincularla con los proveedores.
-        </div>
-
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">
-              🧱 Materias primas
-              <small>Se guardan en Firebase + localStorage</small>
-            </div>
-            <button id="btn-add-material" class="btn secondary" type="button">➕ Agregar MP</button>
-          </div>
-          <div class="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Nombre</th>
-                  <th>Tipo MP</th>
-                  <th>Código</th>
-                  <th>Grupo almacén</th>
-                  <th>Capacidad grupo</th>
-                  <th>Unidad</th>
-                  <th>Consumo ref. día</th>
-                  <th>Mín. días stock</th>
-                </tr>
-              </thead>
-              <tbody id="config-table-body"></tbody>
-            </table>
-          </div>
-          <div class="btn-row">
-            <button id="btn-save-config" class="btn" type="button">
-              💾 Guardar configuración
-            </button>
-          </div>
-          <div class="helper-text">
-            Ejemplo: Azúcar A, Azúcar B y Azúcar C en el mismo silo → poné el mismo “Grupo almacén” (ej: AZU-SILO-1)
-            y una sola capacidad total del silo.  
-            El <strong>Tipo MP</strong> podría ser “AZÚCAR”.  
-            El consumo ref. queda como backup si todavía no hay consumo real en la semana.
-          </div>
-        </div>
-      </div>
-    </section>
-  </main>
-</div>
-
-<!-- 🔥 LÓGICA + FIREBASE -->
-<script type="module">
-  /* ================= FIREBASE (SIN AUTH) ================= */
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
-  import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyClDJTfD7tMClhUH9unWW_x93FYAIDcM2I",
-    authDomain: "finanzas-4-0.firebaseapp.com",
-    projectId: "finanzas-4-0",
-    storageBucket: "finanzas-4-0.firebasestorage.app",
-    messagingSenderId: "740934543720",
-    appId: "1:740934543720:web:b51c2d488c048a6b0fcedd"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-  const FIRESTORE_COLLECTION = "controlGranelesVictoria";
-  const FIRESTORE_DOC_ID = "estado-unico";
-
-  let firestoreSaveTimeout = null;
-
-  async function saveStateToFirestoreDebounced(stateObj){
-    if(!db) return;
-    if(firestoreSaveTimeout) clearTimeout(firestoreSaveTimeout);
-    firestoreSaveTimeout = setTimeout(async ()=>{
-      try{
-        await setDoc(doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID), stateObj);
-        // console.log("Estado guardado en Firestore");
-      }catch(e){
-        console.error("Error guardando en Firestore", e);
-      }
-    }, 800);
-  }
-
-  async function loadStateFromFirestoreAndApply(){
-    try{
-      const ref = doc(db, FIRESTORE_COLLECTION, FIRESTORE_DOC_ID);
-      const snap = await getDoc(ref);
-      if(!snap.exists()) return;
-      const remote = normalizeStateObj(snap.data());
-      state = remote;
-      // También lo dejo en localStorage para cargar rápido la próxima vez
-      saveState(true); // true = no volver a sincronizar inmediatamente
-      // Re-render con datos de Firebase
-      initMaterialSelects();
-      renderConfigTable();
-      recomputeIngresosFromSolicitudes();
-      renderDashboard();
-      renderMovimientosTable();
-      renderSolicitudesTable();
-      renderProveedores();
-    }catch(e){
-      console.error("Error leyendo desde Firestore", e);
-    }
-  }
-
-  /* ================= LOGIN SIMPLE ================= */
-  const USERS = [
-    { username:"pcp",        password:"pcp123",   nombre:"PCP – Planificación" },
-    { username:"deposito",   password:"dep123",   nombre:"Depósito Victoria" },
-    { username:"produccion", password:"prod123",  nombre:"Producción Planta" }
-  ];
-  let currentUser = null;
-
-  let editingProveedorId = null;
-  let editingSolicitudId = null;
-  let editingMovimientoKey = null; // "materialId|fecha"
-
-  function setUser(user){
-    currentUser = user;
-    if(user){
-      try{
-        localStorage.setItem("controlGranelesUsuario", JSON.stringify(user));
-      }catch(e){}
-      document.getElementById("user-name").textContent = user.nombre + " ("+user.username+")";
-      document.getElementById("app-shell").style.display = "block";
-      document.getElementById("login-screen").style.display = "none";
-    }else{
-      try{
-        localStorage.removeItem("controlGranelesUsuario");
-      }catch(e){}
-      document.getElementById("app-shell").style.display = "none";
-      document.getElementById("login-screen").style.display = "flex";
-    }
-  }
-
-  function tryAutoLogin(){
-    try{
-      const raw = localStorage.getItem("controlGranelesUsuario");
-      if(!raw) return;
-      const saved = JSON.parse(raw);
-      if(!saved || !saved.username) return;
-      for(let i=0;i<USERS.length;i++){
-        if(USERS[i].username === saved.username){
-          setUser(USERS[i]);
-          return;
-        }
-      }
-    }catch(e){}
-  }
-
-  function setupLoginUI(){
-    const userInput = document.getElementById("login-user");
-    const passInput = document.getElementById("login-pass");
-    const btn = document.getElementById("login-btn");
-    const errorEl = document.getElementById("login-error");
-
-    function doLogin(){
-      const u = userInput.value.trim();
-      const p = passInput.value;
-      let found = null;
-      for(let i=0;i<USERS.length;i++){
-        if(USERS[i].username===u && USERS[i].password===p){
-          found = USERS[i];
-          break;
-        }
-      }
-      if(!found){
-        errorEl.textContent = "Usuario o contraseña incorrectos.";
+      if (!apiKey) {
+        statusEl.textContent = "Pegá tu API key de OpenAI primero 😉";
         return;
       }
-      errorEl.textContent = "";
-      setUser(found);
-      initApp();
-    }
-
-    btn.addEventListener("click", doLogin);
-    passInput.addEventListener("keydown", function(e){
-      if(e.key==="Enter") doLogin();
-    });
-  }
-
-  // ===== UTILIDADES / ESTADO LOCAL =====
-  function deepClone(obj){
-    return JSON.parse(JSON.stringify(obj));
-  }
-
-  const LS_KEY = "controlGranelesVictoria_v3";
-
-  const defaultState = {
-    materiales: [
-      {
-        id:"clara",
-        nombre:"CLARA DE HUEVO",
-        tipo:"CLARA",
-        codigo:"4050-CLARA",
-        grupoAlmacen:"CLARA-TQ-1",
-        capacidadGrupo:1000,
-        unidad:"kg",
-        consumoRef:100,
-        minDias:2
-      },
-      {
-        id:"glucosa_liviana",
-        nombre:"GLUCOSA LIVIANA V2",
-        tipo:"GLUCOSA",
-        codigo:"4050-GLUC-LIV",
-        grupoAlmacen:"GLUC-TQ-1",
-        capacidadGrupo:25700,
-        unidad:"kg",
-        consumoRef:5000,
-        minDias:2
-      },
-      {
-        id:"glucosa_pesada",
-        nombre:"GLUCOSA PESADA CARAMELO",
-        tipo:"GLUCOSA",
-        codigo:"4050-GLUC-PES",
-        grupoAlmacen:"GLUC-TQ-2",
-        capacidadGrupo:25700,
-        unidad:"kg",
-        consumoRef:4000,
-        minDias:2
-      },
-      {
-        id:"azucar",
-        nombre:"AZÚCAR TIPO A",
-        tipo:"AZÚCAR",
-        codigo:"4050041239000",
-        grupoAlmacen:"AZU-SILO-1",
-        capacidadGrupo:70000,
-        unidad:"kg",
-        consumoRef:8000,
-        minDias:3
-      },
-      {
-        id:"mani",
-        nombre:"MANÍ SPLIT RUNNER MANTECOL",
-        tipo:"MANÍ",
-        codigo:"4050040407800",
-        grupoAlmacen:"MANI-SILO-1",
-        capacidadGrupo:70000,
-        unidad:"kg",
-        consumoRef:9000,
-        minDias:3
-      }
-    ],
-    movimientos: [],
-    solicitudes: [],
-    proveedores:[]
-  };
-
-  let state = loadState(); // arranca con localStorage o defaults
-
-  function normalizeStateObj(parsed){
-    if(!parsed || typeof parsed!=="object") parsed = {};
-    if(!parsed.materiales) parsed.materiales = deepClone(defaultState.materiales);
-    if(!parsed.movimientos) parsed.movimientos = [];
-    if(!parsed.solicitudes) parsed.solicitudes = [];
-    if(!parsed.proveedores) parsed.proveedores = [];
-
-    for(let i=0;i<parsed.materiales.length;i++){
-      const m = parsed.materiales[i];
-      if(m.grupoAlmacen === undefined) m.grupoAlmacen = m.nombre || "";
-      if(m.capacidadGrupo === undefined) m.capacidadGrupo = Number(m.capacidad)||0;
-      if(m.tipo === undefined) m.tipo = m.nombre || "";
-    }
-    for(let j=0;j<parsed.movimientos.length;j++){
-      const mm = parsed.movimientos[j];
-      if(mm.ingresosManual === undefined){
-        const baseIng = Number(mm.ingresos||0);
-        const baseOC = Number(mm.ingresosOC||0);
-        mm.ingresosManual = baseIng - baseOC;
-        if(isNaN(mm.ingresosManual)) mm.ingresosManual = baseIng;
-      }
-      if(mm.ingresosOC === undefined) mm.ingresosOC = 0;
-      mm.ingresos = Number(mm.ingresosManual||0) + Number(mm.ingresosOC||0);
-      if(mm.stockFinal === undefined){
-        mm.stockFinal = Number(mm.stockInicial||0) + mm.ingresos - Number(mm.consumo||0);
-      }
-    }
-    return parsed;
-  }
-
-  function loadState(){
-    try{
-      const raw = localStorage.getItem(LS_KEY);
-      if(!raw){
-        return deepClone(defaultState);
-      }
-      const parsed = JSON.parse(raw);
-      return normalizeStateObj(parsed);
-    }catch(e){
-      console.error("Error leyendo localStorage", e);
-      return deepClone(defaultState);
-    }
-  }
-
-  function saveState(skipFirestore){
-    try{
-      localStorage.setItem(LS_KEY, JSON.stringify(state));
-    }catch(e){
-      console.error("Error guardando localStorage", e);
-    }
-    if(!skipFirestore){
-      saveStateToFirestoreDebounced(state);
-    }
-  }
-
-  function fmtNumber(value){
-    if(value === null || value === undefined || isNaN(value)) return "-";
-    return Number(value).toLocaleString("es-AR",{maximumFractionDigits:2});
-  }
-  function fmtDate(iso){
-    if(!iso) return "";
-    const parts = iso.split("-");
-    if(parts.length !== 3) return iso;
-    const y = parts[0], m = parts[1], d = parts[2];
-    return d.padStart(2,"0")+"/"+m.padStart(2,"0");
-  }
-  function isoFromDateObj(d){
-    const y = d.getFullYear();
-    const m = String(d.getMonth()+1).padStart(2,"0");
-    const day = String(d.getDate()).padStart(2,"0");
-    return y+"-"+m+"-"+day;
-  }
-  function todayIso(){
-    return isoFromDateObj(new Date());
-  }
-
-  function getMaterialById(id){
-    for(let i=0;i<state.materiales.length;i++){
-      if(state.materiales[i].id===id) return state.materiales[i];
-    }
-    return null;
-  }
-
-  function getMovimientosByMaterial(materialId){
-    const arr = [];
-    for(let i=0;i<state.movimientos.length;i++){
-      if(state.movimientos[i].materialId===materialId) arr.push(state.movimientos[i]);
-    }
-    arr.sort(function(a,b){
-      if(a.fecha<b.fecha) return -1;
-      if(a.fecha>b.fecha) return 1;
-      return 0;
-    });
-    return arr;
-  }
-
-  function getUltimoMovimiento(materialId){
-    const list = getMovimientosByMaterial(materialId);
-    if(!list.length) return null;
-    return list[list.length-1];
-  }
-
-  function getLastStockBefore(materialId, fecha){
-    const movs = getMovimientosByMaterial(materialId);
-    let last = null;
-    for(let i=0;i<movs.length;i++){
-      if(movs[i].fecha < fecha) last = movs[i];
-    }
-    return last ? Number(last.stockFinal)||0 : 0;
-  }
-
-  // SEMANAS
-  function getWeekStart(dateIso){
-    const parts = dateIso.split("-");
-    if(parts.length!==3) return null;
-    const y = Number(parts[0]), m = Number(parts[1]), d = Number(parts[2]);
-    const dt = new Date(y, m-1, d);
-    const day = dt.getDay(); // 0 dom, 1 lun...
-    const diff = (day === 0 ? -6 : 1 - day); // lunes
-    dt.setDate(dt.getDate() + diff);
-    return dt;
-  }
-
-  function getWeeklyAverageConsumption(materialId, weekStartIso){
-    const start = getWeekStart(weekStartIso);
-    if(!start) return 0;
-    const movs = getMovimientosByMaterial(materialId);
-    if(!movs.length) return 0;
-
-    let totalConsumo = 0;
-    let diasConDatos = 0;
-
-    for(let i=0;i<7;i++){
-      const d = new Date(start.getTime());
-      d.setDate(d.getDate() + i);
-      const iso = isoFromDateObj(d);
-      let mov = null;
-      for(let j=0;j<movs.length;j++){
-        if(movs[j].fecha===iso){mov=movs[j];break;}
-      }
-      if(mov){
-        totalConsumo += Number(mov.consumo||0);
-        diasConDatos++;
-      }
-    }
-    if(diasConDatos===0) return 0;
-    return totalConsumo/diasConDatos;
-  }
-
-  function initMaterialSelects(){
-    const selects = [
-      document.getElementById("dash-material"),
-      document.getElementById("mov-material"),
-      document.getElementById("mov-list-material"),
-      document.getElementById("sol-material")
-    ];
-    for(let s=0;s<selects.length;s++){
-      const sel = selects[s];
-      if(!sel) continue;
-      const current = sel.value;
-      sel.innerHTML = "";
-      for(let i=0;i<state.materiales.length;i++){
-        const m = state.materiales[i];
-        const opt = document.createElement("option");
-        opt.value = m.id;
-        opt.textContent = m.nombre;
-        sel.appendChild(opt);
-      }
-      if(current){
-        let exists = false;
-        for(let k=0;k<state.materiales.length;k++){
-          if(state.materiales[k].id===current){exists=true;break;}
-        }
-        if(exists) sel.value = current;
-      }
-    }
-    updateSolicitudProveedoresOptions();
-  }
-
-  // DASHBOARD
-  function renderDashboard(){
-    const materialSelect = document.getElementById("dash-material");
-    if(!materialSelect.value && state.materiales.length){
-      materialSelect.value = state.materiales[0].id;
-    }
-    const materialId = materialSelect.value;
-    const material = getMaterialById(materialId);
-    if(!material) return;
-
-    const grupo = material.grupoAlmacen || "";
-    let stockAlmacen = 0;
-    let fechaUltima = null;
-
-    if(grupo){
-      for(let i=0;i<state.materiales.length;i++){
-        const mg = state.materiales[i];
-        if(mg.grupoAlmacen===grupo){
-          const ultimo = getUltimoMovimiento(mg.id);
-          if(ultimo){
-            stockAlmacen += Number(ultimo.stockFinal)||0;
-            if(!fechaUltima || ultimo.fecha>fechaUltima) fechaUltima = ultimo.fecha;
-          }
-        }
-      }
-    }else{
-      const ultimoMP = getUltimoMovimiento(materialId);
-      if(ultimoMP){
-        stockAlmacen = Number(ultimoMP.stockFinal)||0;
-        fechaUltima = ultimoMP.fecha;
-      }
-    }
-
-    const capacidadGrupo = Number(material.capacidadGrupo)||0;
-    const minDias = Number(material.minDias)||0;
-
-    const ultMovMP = getUltimoMovimiento(materialId);
-    const stockMP = ultMovMP ? Number(ultMovMP.stockFinal)||0 : 0;
-
-    let avgSemana = 0;
-    if(ultMovMP){
-      const startWeek = getWeekStart(ultMovMP.fecha);
-      if(startWeek){
-        const startIso = isoFromDateObj(startWeek);
-        avgSemana = getWeeklyAverageConsumption(materialId, startIso);
-      }
-    }
-    const consumoBackup = Number(material.consumoRef)||0;
-    const consumoRefEfectivo = avgSemana>0 ? avgSemana : consumoBackup;
-
-    const diasStock = consumoRefEfectivo>0 ? stockMP/consumoRefEfectivo : null;
-    const ocupacion = capacidadGrupo>0 ? (stockAlmacen/capacidadGrupo)*100 : 0;
-
-    document.getElementById("dash-material-label").textContent =
-      "· "+material.nombre+" ("+(material.codigo||"-")+") – Tipo: "+(material.tipo||"-")+" – Grupo: "+(material.grupoAlmacen||"–");
-    document.getElementById("dash-stock-actual").textContent = fmtNumber(stockAlmacen);
-    document.getElementById("dash-unit").textContent = material.unidad || "";
-    document.getElementById("dash-unit-2").textContent = material.unidad || "";
-    document.getElementById("dash-unit-3").textContent = material.unidad || "";
-    document.getElementById("dash-capacidad").textContent = fmtNumber(capacidadGrupo);
-    document.getElementById("dash-stock-date").textContent = fechaUltima ? fmtDate(fechaUltima) : "Sin registros";
-    document.getElementById("dash-consumo-ref").textContent = fmtNumber(consumoRefEfectivo);
-    document.getElementById("dash-min-dias").textContent = minDias || "–";
-
-    const diasEl = document.getElementById("dash-dias-stock");
-    diasEl.textContent = diasStock!==null ? fmtNumber(diasStock) : "–";
-
-    const fill = document.getElementById("dash-progress-fill");
-    const width = Math.max(0, Math.min(100, ocupacion));
-    fill.style.width = width.toFixed(1)+"%";
-
-    const badge = document.getElementById("dash-status-badge");
-    const alertText = document.getElementById("dash-alert-text");
-    badge.className = "badge";
-
-    if(capacidadGrupo && stockAlmacen > capacidadGrupo){
-      badge.classList.add("danger");
-      badge.innerHTML = "⚠️ Capacidad almacén excedida";
-      alertText.textContent = "No programar ingresos: el silo/tanque ya está por encima de la capacidad.";
-    }else if(diasStock!==null && minDias && diasStock < minDias){
-      badge.classList.add("warn");
-      badge.innerHTML = "🟡 STOCK BAJO – OJO ALERTA (MP)";
-      alertText.textContent = "Con el consumo promedio de esta semana, los días de stock están por debajo del mínimo.";
-    }else if(!fechaUltima){
-      badge.textContent = "Sin datos";
-      alertText.textContent = "Empezá cargando el stock inicial y consumo para el primer día.";
-    }else{
-      badge.classList.add("ok");
-      badge.innerHTML = "🟢 Stock OK";
-      if(avgSemana>0){
-        alertText.textContent = "Días de stock calculados con el consumo promedio real de la semana en curso.";
-      }else{
-        alertText.textContent = "Usando consumo de referencia configurado (todavía no hay consumo real en la semana).";
-      }
-    }
-
-    // Info OC pendientes/confirmadas
-    const ocPend = [];
-    for(let s=0;s<state.solicitudes.length;s++){
-      const so = state.solicitudes[s];
-      if(so.materialId===materialId && (so.estado==="pendiente" || so.estado==="confirmada")){
-        ocPend.push(so);
-      }
-    }
-    if(ocPend.length){
-      let totalOC = 0;
-      let nextDate = null;
-      for(let q=0;q<ocPend.length;q++){
-        totalOC += Number(ocPend[q].cantidadSolicitada||0);
-        if(ocPend[q].fechaEntrega && (!nextDate || ocPend[q].fechaEntrega<nextDate)){
-          nextDate = ocPend[q].fechaEntrega;
-        }
-      }
-      let extra = " · OC pendientes/confirmadas: "+fmtNumber(totalOC)+" "+(material.unidad||"");
-      if(nextDate) extra += " (próx entrega: "+fmtDate(nextDate)+")";
-      alertText.textContent += extra;
-    }
-
-    // últimos movimientos
-    const tbody = document.getElementById("dash-movimientos-body");
-    const wrapperEmpty = document.getElementById("dash-empty");
-    tbody.innerHTML = "";
-    let movs = getMovimientosByMaterial(materialId);
-    movs = movs.slice(Math.max(0,movs.length-10)); // últimos 10
-    movs.reverse();
-    if(!movs.length){
-      wrapperEmpty.style.display = "block";
-    }else{
-      wrapperEmpty.style.display = "none";
-      for(let mI=0;mI<movs.length;mI++){
-        const mrow = movs[mI];
-        const tr = document.createElement("tr");
-        tr.innerHTML = "<td>"+fmtDate(mrow.fecha)+"</td>"+
-          "<td>"+fmtNumber(mrow.stockInicial)+"</td>"+
-          "<td>"+fmtNumber(mrow.ingresos)+"</td>"+
-          "<td>"+fmtNumber(mrow.consumo)+"</td>"+
-          "<td>"+fmtNumber(mrow.stockFinal)+"</td>"+
-          "<td>"+(mrow.proveedor||"")+"</td>";
-        tbody.appendChild(tr);
-      }
-    }
-
-    renderWeeklyView();
-  }
-
-  // ======= ⚙️ VISTA SEMANAL =======
-  function renderWeeklyView(){
-    const materialId = document.getElementById("dash-material").value;
-    const material = getMaterialById(materialId);
-    if(!material) return;
-
-    const minDias = Number(material.minDias)||0;
-
-    const inputWeek = document.getElementById("week-start-date");
-    let startDateIso = inputWeek.value;
-    if(!startDateIso){
-      const mondayAuto = getWeekStart(todayIso());
-      if(mondayAuto){
-        startDateIso = isoFromDateObj(mondayAuto);
-        inputWeek.value = startDateIso;
-      }else{
-        startDateIso = todayIso();
-        inputWeek.value = startDateIso;
-      }
-    }
-
-    const monday = getWeekStart(startDateIso);
-    if(!monday) return;
-    const mondayIso = isoFromDateObj(monday);
-    const sunday = new Date(monday.getTime());
-    sunday.setDate(sunday.getDate()+6);
-    const sundayIso = isoFromDateObj(sunday);
-
-    const tbody = document.getElementById("week-table-body");
-    tbody.innerHTML = "";
-
-    const movs = getMovimientosByMaterial(materialId);
-    const movByDate = {};
-    for(let i=0;i<movs.length;i++){
-      movByDate[movs[i].fecha] = movs[i];
-    }
-
-    // OC confirmadas/entregadas en la semana para esta MP
-    const ocByDate = {};
-    for(let s=0;s<state.solicitudes.length;s++){
-      const so = state.solicitudes[s];
-      if(so.materialId!==materialId) continue;
-      if(!so.estado) continue;
-      let dateKey = null;
-      if(so.estado==="confirmada"){
-        dateKey = so.fechaEntrega || null;
-      }else if(so.estado==="entregada"){
-        dateKey = so.fechaIngreso || so.fechaEntrega || null;
-      }
-      if(!dateKey) continue;
-      if(dateKey < mondayIso || dateKey > sundayIso) continue;
-
-      if(!ocByDate[dateKey]){
-        ocByDate[dateKey] = {confirmada:0, recibida:0};
-      }
-      if(so.estado==="confirmada"){
-        ocByDate[dateKey].confirmada += Number(so.cantidadSolicitada||0);
-      }else if(so.estado==="entregada"){
-        const qty = (so.cantidadRecibida!==undefined && so.cantidadRecibida!==null && so.cantidadRecibida!=="")
-          ? Number(so.cantidadRecibida)
-          : Number(so.cantidadSolicitada||0);
-        ocByDate[dateKey].recibida += qty;
-      }
-    }
-
-    // stock inicial arranca desde el último movimiento antes del lunes
-    let baseStock = getLastStockBefore(materialId, mondayIso);
-    let runningStock = baseStock;
-
-    const avgSemana = getWeeklyAverageConsumption(materialId, mondayIso);
-    const nombresDias = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
-
-    for(let dI=0;dI<7;dI++){
-      const d = new Date(monday.getTime());
-      d.setDate(d.getDate()+dI);
-      const iso = isoFromDateObj(d);
-
-      const mov = movByDate[iso] || null;
-      const ocDay = ocByDate[iso] || {confirmada:0,recibida:0};
-
-      const stockInicial = runningStock;
-
-      const ingresosMovimiento = mov ? Number(mov.ingresos)||0 : 0;
-      const ingresosOCconfirm = ocDay.confirmada || 0;
-      const ingresosOCrec = ocDay.recibida || 0;
-
-      const ingresosTotales = ingresosMovimiento + ingresosOCconfirm + ingresosOCrec;
-
-      const consumo = mov ? Number(mov.consumo)||0 : 0;
-
-      const stockFinal = stockInicial + ingresosTotales - consumo;
-      runningStock = stockFinal;
-
-      const diasStock = (avgSemana>0 && stockFinal!==null && stockFinal!==undefined)
-        ? stockFinal/avgSemana
-        : null;
-
-      let alerta, alertaClass;
-      if(diasStock!==null && minDias && diasStock < minDias){
-        alerta = "OJO ALERTA – Stock bajo";
-        alertaClass = "alert-text-strong";
-      }else if(mov){
-        alerta = "OK";
-        alertaClass = "";
-      }else{
-        alerta = "Sin datos";
-        alertaClass = "helper-text";
+      if (!prompt) {
+        statusEl.textContent = "Escribí qué app querés primero 😉";
+        return;
       }
 
-      let ingresosLabel = fmtNumber(ingresosTotales);
-      if(ingresosOCrec>0){
-        ingresosLabel += '<br><span class="helper-text">OC recibida: '+fmtNumber(ingresosOCrec)+'</span>';
-      }else if(ingresosOCconfirm>0){
-        ingresosLabel += '<br><span class="helper-text">OC conf.: '+fmtNumber(ingresosOCconfirm)+'</span>';
-      }
+      generateBtn.disabled = true;
+      statusEl.textContent = "Generando código, aguantá un toque...";
+      outputEl.textContent = "";
 
-      const tr = document.createElement("tr");
-      tr.innerHTML =
-        "<td>"+nombresDias[dI]+"</td>"+
-        "<td>"+fmtDate(iso)+"</td>"+
-        "<td>"+fmtNumber(stockInicial)+"</td>"+
-        "<td>"+ingresosLabel+"</td>"+
-        "<td>"+fmtNumber(consumo)+"</td>"+
-        "<td>"+fmtNumber(stockFinal)+"</td>"+
-        "<td>"+(diasStock!==null ? fmtNumber(diasStock) : "-")+"</td>"+
-        '<td class="'+alertaClass+'">'+alerta+"</td>";
-      tbody.appendChild(tr);
-    }
-  }
-  // MOVIMIENTOS
-  function renderMovimientosTable(){
-    const sel = document.getElementById("mov-list-material");
-    let materialId = sel.value;
-    if(!materialId){
-      if(state.materiales.length) materialId = state.materiales[0].id;
-    }
-    const material = getMaterialById(materialId);
-    if(!material) return;
-    sel.value = materialId;
+      const rolSistema = `
+Sos una IA experta en desarrollo de software.
+Tu tarea es generar código COMPLETO para apps según lo que pida el usuario.
 
-    const tbody = document.getElementById("mov-table-body");
-    tbody.innerHTML = "";
+Reglas:
+- Generá código limpio y comentado.
+- Usá el lenguaje que se pida (por defecto HTML + CSS + JS todo en un solo archivo).
+- No expliques demasiado, devolvé sobre todo código.
+- Si la app es web, incluí <html>, <head>, <body> y <script>.
+- El código debe ser directamente ejecutable.
+      `.trim();
 
-    const list = getMovimientosByMaterial(materialId);
-    const weekCache = {};
+      const textoFinal = `
+${rolSistema}
 
-    for(let i=0;i<list.length;i++){
-      const m = list[i];
-      const weekStart = getWeekStart(m.fecha);
-      let avgSemana = 0;
-      if(weekStart){
-        const weekIso = isoFromDateObj(weekStart);
-        if(weekCache[weekIso]===undefined){
-          weekCache[weekIso] = getWeeklyAverageConsumption(materialId, weekIso);
-        }
-        avgSemana = weekCache[weekIso];
-      }
-      const consumoBase = avgSemana>0 ? avgSemana : Number(material.consumoRef)||0;
-      const diasStock = consumoBase>0 ? (Number(m.stockFinal)/consumoBase) : null;
+Pedido del usuario:
+"${prompt}"
 
-      const tr = document.createElement("tr");
-      tr.innerHTML =
-        "<td>"+fmtDate(m.fecha)+"</td>"+
-        "<td>"+fmtNumber(m.stockInicial)+"</td>"+
-        "<td>"+fmtNumber(m.ingresos)+"</td>"+
-        "<td>"+fmtNumber(m.consumo)+"</td>"+
-        "<td>"+fmtNumber(m.stockFinal)+"</td>"+
-        "<td>"+(diasStock!==null?fmtNumber(diasStock):"-")+"</td>"+
-        '<td>'+
-          '<button class="btn-sm" data-material="'+m.materialId+'" data-fecha="'+m.fecha+'" data-action="edit">✏️</button>'+
-          '<button class="btn-sm danger" data-material="'+m.materialId+'" data-fecha="'+m.fecha+'" data-action="delete">🗑</button>'+
-        '</td>';
-      tbody.appendChild(tr);
-    }
-  }
+Lenguaje requerido: ${lenguaje || "HTML + CSS + JS"}
+      `.trim();
 
-  // INGRESOS DESDE SOLICITUDES
-  function recomputeIngresosFromSolicitudes(){
-    const ocTotals = {};
-    for(let i=0;i<state.solicitudes.length;i++){
-      const s = state.solicitudes[i];
-      const cantidad = Number(s.cantidadRecibida||0);
-      if(s.estado==="entregada" && s.fechaIngreso && cantidad>0){
-        const key = s.materialId+"|"+s.fechaIngreso;
-        if(!ocTotals[key]) ocTotals[key] = {cantidad:0, proveedores:{}};
-        ocTotals[key].cantidad += cantidad;
-        if(s.proveedor){
-          ocTotals[key].proveedores[s.proveedor] = true;
-        }
-      }
-    }
-
-    // actualizar movimientos existentes
-    for(let mI=0;mI<state.movimientos.length;mI++){
-      const m = state.movimientos[mI];
-      const key = m.materialId+"|"+m.fecha;
-      const data = ocTotals[key];
-
-      if(m.ingresosManual===undefined){
-        const baseIng = Number(m.ingresos||0);
-        const baseOC = Number(m.ingresosOC||0);
-        m.ingresosManual = baseIng - baseOC;
-        if(isNaN(m.ingresosManual)) m.ingresosManual = baseIng;
-      }
-      m.ingresosOC = data ? data.cantidad : 0;
-      m.ingresos = Number(m.ingresosManual||0) + Number(m.ingresosOC||0);
-      m.stockFinal = Number(m.stockInicial||0) + m.ingresos - Number(m.consumo||0);
-
-      if(data){
-        const provs = Object.keys(data.proveedores);
-        if(provs.length && !m.proveedor){
-          m.proveedor = provs.join(", ");
-        }
-      }
-    }
-
-    // crear movimientos automáticos si falta alguno
-    for(const key in ocTotals){
-      if(!ocTotals.hasOwnProperty(key)) continue;
-      const parts = key.split("|");
-      const materialId = parts[0];
-      const fecha = parts[1];
-      let exists = false;
-      for(let j=0;j<state.movimientos.length;j++){
-        const mm = state.movimientos[j];
-        if(mm.materialId===materialId && mm.fecha===fecha){
-          exists = true;break;
-        }
-      }
-      if(exists) continue;
-
-      const stockInicial = getLastStockBefore(materialId, fecha);
-      const ingresosManual = 0;
-      const ingresosOC = ocTotals[key].cantidad;
-      const ingresos = ingresosManual + ingresosOC;
-      const stockFinal = stockInicial + ingresos;
-      const provNames = Object.keys(ocTotals[key].proveedores).join(", ");
-
-      state.movimientos.push({
-        materialId:materialId,
-        fecha:fecha,
-        stockInicial:stockInicial,
-        ingresosManual:ingresosManual,
-        ingresosOC:ingresosOC,
-        ingresos:ingresos,
-        consumo:0,
-        stockFinal:stockFinal,
-        proveedor:provNames,
-        observaciones:"Ingreso automático por solicitudes/OC"
-      });
-    }
-
-    saveState();
-  }
-
-  // SOLICITUDES
-  function renderSolicitudesTable(){
-    const tbody = document.getElementById("sol-table-body");
-    tbody.innerHTML = "";
-    const list = state.solicitudes.slice();
-    list.sort(function(a,b){
-      const fa = a.fechaEntrega||"";
-      const fb = b.fechaEntrega||"";
-      if(fa<fb) return -1;
-      if(fa>fb) return 1;
-      return 0;
-    });
-
-    for(let i=0;i<list.length;i++){
-      const s = list[i];
-      const material = getMaterialById(s.materialId);
-      const estado = s.estado || "pendiente";
-      let estadoClass = "pending";
-      let text = "Pendiente";
-      if(estado==="confirmada"){estadoClass="confirmed";text="Confirmada";}
-      if(estado==="entregada"){estadoClass="delivered";text="Entregada";}
-
-      const tr = document.createElement("tr");
-      tr.innerHTML =
-        "<td>"+(material?material.nombre:"-")+"</td>"+
-        "<td>"+(s.proveedor||"")+"</td>"+
-        "<td>"+fmtNumber(s.cantidadSolicitada)+"</td>"+
-        "<td>"+fmtNumber(s.cantidadRecibida||0)+"</td>"+
-        "<td>"+fmtDate(s.fechaEntrega)+"</td>"+
-        "<td>"+fmtDate(s.fechaIngreso)+"</td>"+
-        "<td>"+(s.oc||"")+"</td>"+
-        '<td><span class="chip '+estadoClass+'">'+text+"</span></td>"+
-        '<td>'+
-          '<button class="btn-sm" data-id="'+s.id+'" data-action="edit">✏️</button>'+
-          '<button class="btn-sm danger" data-id="'+s.id+'" data-action="delete">🗑</button>'+
-        '</td>';
-      tbody.appendChild(tr);
-    }
-  }
-
-  // PROVEEDORES
-  function renderProveedores(){
-    const tbody = document.getElementById("prov-table-body");
-    const datalist = document.getElementById("proveedores-list");
-    if(!tbody || !datalist) return;
-
-    tbody.innerHTML = "";
-    datalist.innerHTML = "";
-
-    for(let i=0;i<state.proveedores.length;i++){
-      const p = state.proveedores[i];
-      const tr = document.createElement("tr");
-      tr.innerHTML =
-        "<td>"+p.nombre+"</td>"+
-        "<td>"+(p.cuit||"")+"</td>"+
-        "<td>"+(p.contacto||"")+"</td>"+
-        "<td>"+(p.telefono||"")+"</td>"+
-        "<td>"+(p.mp||"")+"</td>"+
-        '<td>'+
-          '<button class="btn-sm" data-id="'+p.id+'" data-action="edit">✏️</button>'+
-          '<button class="btn-sm danger" data-id="'+p.id+'" data-action="delete">🗑</button>'+
-        '</td>';
-      tbody.appendChild(tr);
-
-      const opt = document.createElement("option");
-      opt.value = p.nombre;
-      datalist.appendChild(opt);
-    }
-
-    updateSolicitudProveedoresOptions();
-  }
-
-  // CONFIG
-  function renderConfigTable(){
-    const tbody = document.getElementById("config-table-body");
-    tbody.innerHTML = "";
-    for(let i=0;i<state.materiales.length;i++){
-      const m = state.materiales[i];
-      const tr = document.createElement("tr");
-      tr.innerHTML =
-        '<td><input data-field="nombre" data-index="'+i+'" value="'+(m.nombre||"")+'"></td>'+
-        '<td><input data-field="tipo" data-index="'+i+'" value="'+(m.tipo||"")+'"></td>'+
-        '<td><input data-field="codigo" data-index="'+i+'" value="'+(m.codigo||"")+'"></td>'+
-        '<td><input data-field="grupoAlmacen" data-index="'+i+'" value="'+(m.grupoAlmacen||"")+'"></td>'+
-        '<td><input type="number" step="0.01" data-field="capacidadGrupo" data-index="'+i+'" value="'+(m.capacidadGrupo||0)+'"></td>'+
-        '<td><input data-field="unidad" data-index="'+i+'" value="'+(m.unidad||"")+'"></td>'+
-        '<td><input type="number" step="0.01" data-field="consumoRef" data-index="'+i+'" value="'+(m.consumoRef||0)+'"></td>'+
-        '<td><input type="number" step="0.01" data-field="minDias" data-index="'+i+'" value="'+(m.minDias||0)+'"></td>';
-      tbody.appendChild(tr);
-    }
-  }
-
-  function addMaterial(){
-    const id = "mp_"+Date.now();
-    state.materiales.push({
-      id:id,
-      nombre:"NUEVA MP",
-      tipo:"",
-      codigo:"",
-      grupoAlmacen:"",
-      capacidadGrupo:0,
-      unidad:"kg",
-      consumoRef:0,
-      minDias:0
-    });
-    renderConfigTable();
-    initMaterialSelects();
-    saveState();
-  }
-
-  function saveConfigFromTable(){
-    const inputs = document.querySelectorAll("#config-table-body input");
-    for(let i=0;i<inputs.length;i++){
-      const input = inputs[i];
-      const idx = Number(input.getAttribute("data-index"));
-      const field = input.getAttribute("data-field");
-      if(state.materiales[idx]){
-        let val = input.value;
-        if(field==="capacidadGrupo" || field==="consumoRef" || field==="minDias"){
-          val = Number(val)||0;
-        }
-        state.materiales[idx][field] = val;
-      }
-    }
-    saveState();
-    initMaterialSelects();
-    renderDashboard();
-    renderMovimientosTable();
-  }
-
-  // STOCK INICIAL AUTO/MANUAL
-  function updateAutoStockInicial(){
-    const manual = document.getElementById("mov-manual-stock").checked;
-    const input = document.getElementById("mov-stock-inicial");
-    const materialId = document.getElementById("mov-material").value;
-    const fecha = document.getElementById("mov-fecha").value;
-
-    if(manual){
-      input.disabled = false;
-      return;
-    }
-    input.disabled = true;
-    if(!materialId || !fecha){
-      input.value = "";
-      return;
-    }
-    const base = getLastStockBefore(materialId, fecha);
-    input.value = base;
-  }
-
-  // PROVEEDORES PARA MP
-  function getProveedoresForMaterial(materialId){
-    const material = getMaterialById(materialId);
-    if(!material) return state.proveedores;
-    const tipo = (material.tipo || material.nombre || "").toLowerCase();
-    const res = [];
-    for(let i=0;i<state.proveedores.length;i++){
-      const p = state.proveedores[i];
-      if(!p.mp){
-        res.push(p); // proveedor general
-        continue;
-      }
-      if(!tipo){
-        res.push(p);
-        continue;
-      }
-      if(p.mp.toLowerCase().indexOf(tipo)!==-1){
-        res.push(p);
-      }
-    }
-    return res;
-  }
-
-  function updateSolicitudProveedoresOptions(){
-    const selMat = document.getElementById("sol-material");
-    const selProv = document.getElementById("sol-proveedor");
-    if(!selMat || !selProv) return;
-    const materialId = selMat.value;
-    selProv.innerHTML = "";
-
-    const provs = getProveedoresForMaterial(materialId);
-    if(!provs.length){
-      const opt = document.createElement("option");
-      opt.value = "";
-      opt.textContent = "— No hay proveedores cargados para esta MP —";
-      selProv.appendChild(opt);
-      return;
-    }
-    const optEmpty = document.createElement("option");
-    optEmpty.value = "";
-    optEmpty.textContent = "Seleccionar proveedor…";
-    selProv.appendChild(optEmpty);
-
-    for(let i=0;i<provs.length;i++){
-      const p = provs[i];
-      const opt2 = document.createElement("option");
-      opt2.value = p.nombre;
-      opt2.textContent = p.nombre;
-      selProv.appendChild(opt2);
-    }
-  }
-
-  // EVENTOS FORMULARIOS / NAV
-  function setupForms(){
-    const solSubmitBtn = document.getElementById("sol-submit-btn");
-    const provSubmitBtn = document.getElementById("prov-submit-btn");
-    const movSubmitBtn = document.getElementById("mov-submit-btn");
-
-    // MOVIMIENTOS
-    document.getElementById("form-movimiento").addEventListener("submit", function(e){
-      e.preventDefault();
-      const materialId = document.getElementById("mov-material").value;
-      const fecha = document.getElementById("mov-fecha").value;
-      if(!materialId || !fecha) return;
-
-      if(editingMovimientoKey){
-        const parts = editingMovimientoKey.split("|");
-        const oldMat = parts[0];
-        const oldFecha = parts[1];
-        for(let i=state.movimientos.length-1;i>=0;i--){
-          if(state.movimientos[i].materialId===oldMat && state.movimientos[i].fecha===oldFecha){
-            state.movimientos.splice(i,1);
-          }
-        }
-        editingMovimientoKey = null;
-      }
-
-      const manualStock = document.getElementById("mov-manual-stock").checked;
-      let stockInicial;
-      if(manualStock){
-        stockInicial = Number(document.getElementById("mov-stock-inicial").value || 0);
-      }else{
-        stockInicial = getLastStockBefore(materialId, fecha);
-      }
-      const ingresosManual = Number(document.getElementById("mov-ingresos").value || 0);
-      const consumo = Number(document.getElementById("mov-consumo").value || 0);
-      const proveedor = document.getElementById("mov-proveedor").value.trim();
-      const obs = document.getElementById("mov-observaciones").value.trim();
-
-      const ingresosOC = 0;
-      const ingresos = ingresosManual + ingresosOC;
-      const stockFinal = stockInicial + ingresos - consumo;
-
-      state.movimientos.push({
-        materialId:materialId,
-        fecha:fecha,
-        stockInicial:stockInicial,
-        ingresosManual:ingresosManual,
-        ingresosOC:ingresosOC,
-        ingresos:ingresos,
-        consumo:consumo,
-        stockFinal:stockFinal,
-        proveedor:proveedor,
-        observaciones:obs
-      });
-
-      saveState();
-      recomputeIngresosFromSolicitudes();
-      renderDashboard();
-      renderMovimientosTable();
-
-      e.target.reset();
-      document.getElementById("mov-manual-stock").checked = false;
-      document.getElementById("mov-stock-inicial").disabled = true;
-      movSubmitBtn.textContent = "💾 Guardar movimiento";
-      updateAutoStockInicial();
-    });
-
-    document.getElementById("mov-table-body").addEventListener("click", function(e){
-      const btn = e.target.closest("button.btn-sm");
-      if(!btn) return;
-      const materialId = btn.getAttribute("data-material");
-      const fecha = btn.getAttribute("data-fecha");
-      const action = btn.getAttribute("data-action");
-      const key = materialId+"|"+fecha;
-      let mov = null;
-      for(let i=0;i<state.movimientos.length;i++){
-        if(state.movimientos[i].materialId===materialId && state.movimientos[i].fecha===fecha){
-          mov = state.movimientos[i];break;
-        }
-      }
-      if(!mov) return;
-
-      if(action==="edit"){
-        editingMovimientoKey = key;
-        document.getElementById("mov-material").value = materialId;
-        document.getElementById("mov-fecha").value = fecha;
-        document.getElementById("mov-manual-stock").checked = true;
-        document.getElementById("mov-stock-inicial").disabled = false;
-        document.getElementById("mov-stock-inicial").value = mov.stockInicial;
-        const ingresosManual = (mov.ingresosManual!==undefined)
-          ? mov.ingresosManual
-          : Number(mov.ingresos||0) - Number(mov.ingresosOC||0);
-        document.getElementById("mov-ingresos").value = ingresosManual;
-        document.getElementById("mov-consumo").value = mov.consumo||0;
-        document.getElementById("mov-proveedor").value = mov.proveedor||"";
-        document.getElementById("mov-observaciones").value = mov.observaciones||"";
-        movSubmitBtn.textContent = "✅ Actualizar movimiento";
-      }else if(action==="delete"){
-        for(let j=state.movimientos.length-1;j>=0;j--){
-          if(state.movimientos[j].materialId===materialId && state.movimientos[j].fecha===fecha){
-            state.movimientos.splice(j,1);
-          }
-        }
-        if(editingMovimientoKey===key){
-          editingMovimientoKey = null;
-          document.getElementById("form-movimiento").reset();
-          document.getElementById("mov-manual-stock").checked = false;
-          document.getElementById("mov-stock-inicial").disabled = true;
-          movSubmitBtn.textContent = "💾 Guardar movimiento";
-        }
-        saveState();
-        recomputeIngresosFromSolicitudes();
-        renderDashboard();
-        renderMovimientosTable();
-      }
-    });
-
-    document.getElementById("mov-list-material").addEventListener("change", renderMovimientosTable);
-    document.getElementById("dash-material").addEventListener("change", function(){
-      renderDashboard();
-      renderWeeklyView();
-    });
-    document.getElementById("week-start-date").addEventListener("change", renderWeeklyView);
-
-    document.getElementById("mov-material").addEventListener("change", updateAutoStockInicial);
-    document.getElementById("mov-fecha").addEventListener("change", updateAutoStockInicial);
-    document.getElementById("mov-manual-stock").addEventListener("change", updateAutoStockInicial);
-
-    // SOLICITUDES
-    document.getElementById("form-solicitud").addEventListener("submit", function(e){
-      e.preventDefault();
-      const materialId = document.getElementById("sol-material").value;
-      const proveedor = document.getElementById("sol-proveedor").value.trim();
-      const cantidadOC = Number(document.getElementById("sol-cant-oc").value || 0);
-      const cantidadReal = Number(document.getElementById("sol-cant-real").value || 0);
-      const fechaEntrega = document.getElementById("sol-entrega").value;
-      const fechaIngreso = document.getElementById("sol-ingreso").value;
-      const oc = document.getElementById("sol-oc").value.trim();
-      const estado = document.getElementById("sol-estado").value;
-      const fechaConfirmacion = document.getElementById("sol-confirmacion").value;
-      const notas = document.getElementById("sol-notas").value.trim();
-
-      if(!materialId || !proveedor || !cantidadOC || !fechaEntrega) return;
-
-      if(editingSolicitudId){
-        let s = null;
-        for(let i=0;i<state.solicitudes.length;i++){
-          if(state.solicitudes[i].id===editingSolicitudId){s=state.solicitudes[i];break;}
-        }
-        if(s){
-          s.materialId = materialId;
-          s.proveedor = proveedor;
-          s.cantidadSolicitada = cantidadOC;
-          s.cantidadRecibida = cantidadReal;
-          s.fechaEntrega = fechaEntrega;
-          s.fechaIngreso = fechaIngreso;
-          s.oc = oc;
-          s.estado = estado;
-          s.fechaConfirmacion = fechaConfirmacion;
-          s.notas = notas;
-        }
-      }else{
-        state.solicitudes.push({
-          id:"sol_"+Date.now(),
-          materialId:materialId,
-          proveedor:proveedor,
-          cantidadSolicitada:cantidadOC,
-          cantidadRecibida:cantidadReal,
-          fechaEntrega:fechaEntrega,
-          fechaIngreso:fechaIngreso,
-          oc:oc,
-          estado:estado,
-          fechaConfirmacion:fechaConfirmacion,
-          notas:notas
+      try {
+        const res = await fetch("https://api.openai.com/v1/responses", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + apiKey
+          },
+          body: JSON.stringify({
+            model: "gpt-4.1-mini",
+            input: textoFinal
+          })
         });
-      }
 
-      editingSolicitudId = null;
-      solSubmitBtn.textContent = "📥 Guardar solicitud";
-
-      saveState();
-      recomputeIngresosFromSolicitudes();
-      renderSolicitudesTable();
-      renderDashboard();
-      renderMovimientosTable();
-
-      e.target.reset();
-      updateSolicitudProveedoresOptions();
-    });
-
-    document.getElementById("sol-table-body").addEventListener("click", function(e){
-      const btn = e.target.closest("button.btn-sm");
-      if(!btn) return;
-      const id = btn.getAttribute("data-id");
-      const action = btn.getAttribute("data-action");
-      if(action==="edit"){
-        let s = null;
-        for(let i=0;i<state.solicitudes.length;i++){
-          if(state.solicitudes[i].id===id){s=state.solicitudes[i];break;}
+        if (!res.ok) {
+          const errText = await res.text();
+          console.error("Error respuesta OpenAI:", errText);
+          statusEl.textContent = "Error desde la API. Revisá la key o el saldo.";
+          generateBtn.disabled = false;
+          return;
         }
-        if(!s) return;
-        editingSolicitudId = id;
-        document.getElementById("sol-material").value = s.materialId;
-        updateSolicitudProveedoresOptions();
-        const selProv = document.getElementById("sol-proveedor");
-        if(s.proveedor){
-          let exists = false;
-          for(let o=0;o<selProv.options.length;o++){
-            if(selProv.options[o].value===s.proveedor){exists=true;break;}
+
+        const data = await res.json();
+        // Intentar leer el texto generado según la estructura típica de Responses API
+        let generatedText = "";
+
+        try {
+          const firstOutput = data.output?.[0];
+          if (firstOutput && Array.isArray(firstOutput.content)) {
+            generatedText = firstOutput.content
+              .map(c => (typeof c.text === "string" ? c.text : ""))
+              .join("\n")
+              .trim();
           }
-          if(!exists){
-            const extra = document.createElement("option");
-            extra.value = s.proveedor;
-            extra.textContent = s.proveedor+" (no asociado a esta MP)";
-            selProv.appendChild(extra);
-          }
+        } catch (e) {
+          console.error("Error parseando output:", e);
         }
-        selProv.value = s.proveedor || "";
-        document.getElementById("sol-cant-oc").value = s.cantidadSolicitada||"";
-        document.getElementById("sol-cant-real").value = s.cantidadRecibida||"";
-        document.getElementById("sol-entrega").value = s.fechaEntrega||"";
-        document.getElementById("sol-ingreso").value = s.fechaIngreso||"";
-        document.getElementById("sol-oc").value = s.oc||"";
-        document.getElementById("sol-estado").value = s.estado||"pendiente";
-        document.getElementById("sol-confirmacion").value = s.fechaConfirmacion||"";
-        document.getElementById("sol-notas").value = s.notas||"";
-        solSubmitBtn.textContent = "✅ Actualizar solicitud";
-      }else if(action==="delete"){
-        for(let i=state.solicitudes.length-1;i>=0;i--){
-          if(state.solicitudes[i].id===id){
-            state.solicitudes.splice(i,1);
-          }
-        }
-        if(editingSolicitudId===id){
-          editingSolicitudId = null;
-          document.getElementById("form-solicitud").reset();
-          solSubmitBtn.textContent = "📥 Guardar solicitud";
-          updateSolicitudProveedoresOptions();
-        }
-        saveState();
-        recomputeIngresosFromSolicitudes();
-        renderSolicitudesTable();
-        renderDashboard();
-        renderMovimientosTable();
-      }
-    });
 
-    document.getElementById("sol-material").addEventListener("change", updateSolicitudProveedoresOptions);
-
-    // PROVEEDORES
-    document.getElementById("form-proveedor").addEventListener("submit", function(e){
-      e.preventDefault();
-      const nombre = document.getElementById("prov-nombre").value.trim();
-      const cuit = document.getElementById("prov-cuit").value.trim();
-      const contacto = document.getElementById("prov-contacto").value.trim();
-      const telefono = document.getElementById("prov-telefono").value.trim();
-      const email = document.getElementById("prov-email").value.trim();
-      const mp = document.getElementById("prov-mp").value.trim();
-      const notas = document.getElementById("prov-notas").value.trim();
-      if(!nombre) return;
-
-      if(editingProveedorId){
-        let p = null;
-        for(let i=0;i<state.proveedores.length;i++){
-          if(state.proveedores[i].id===editingProveedorId){p=state.proveedores[i];break;}
+        if (!generatedText) {
+          generatedText = "// No se pudo leer bien la respuesta de la IA.\n// Respuesta cruda:\n" +
+            JSON.stringify(data, null, 2);
         }
-        if(p){
-          p.nombre = nombre;
-          p.cuit = cuit;
-          p.contacto = contacto;
-          p.telefono = telefono;
-          p.email = email;
-          p.mp = mp;
-          p.notas = notas;
-        }
-      }else{
-        state.proveedores.push({
-          id:"prov_"+Date.now(),
-          nombre:nombre,
-          cuit:cuit,
-          contacto:contacto,
-          telefono:telefono,
-          email:email,
-          mp:mp,
-          notas:notas
-        });
-      }
 
-      editingProveedorId = null;
-      provSubmitBtn.textContent = "💾 Guardar proveedor";
-      saveState();
-      renderProveedores();
-      e.target.reset();
-    });
-
-    document.getElementById("prov-table-body").addEventListener("click", function(e){
-      const btn = e.target.closest("button.btn-sm");
-      if(!btn) return;
-      const id = btn.getAttribute("data-id");
-      const action = btn.getAttribute("data-action");
-      if(action==="edit"){
-        let p = null;
-        for(let i=0;i<state.proveedores.length;i++){
-          if(state.proveedores[i].id===id){p=state.proveedores[i];break;}
-        }
-        if(!p) return;
-        editingProveedorId = id;
-        document.getElementById("prov-nombre").value = p.nombre||"";
-        document.getElementById("prov-cuit").value = p.cuit||"";
-        document.getElementById("prov-contacto").value = p.contacto||"";
-        document.getElementById("prov-telefono").value = p.telefono||"";
-        document.getElementById("prov-email").value = p.email||"";
-        document.getElementById("prov-mp").value = p.mp||"";
-        document.getElementById("prov-notas").value = p.notas||"";
-        provSubmitBtn.textContent = "✅ Actualizar proveedor";
-      }else if(action==="delete"){
-        for(let i=state.proveedores.length-1;i>=0;i--){
-          if(state.proveedores[i].id===id){
-            state.proveedores.splice(i,1);
-          }
-        }
-        if(editingProveedorId===id){
-          editingProveedorId = null;
-          document.getElementById("form-proveedor").reset();
-          provSubmitBtn.textContent = "💾 Guardar proveedor";
-        }
-        saveState();
-        renderProveedores();
-      }
-    });
-
-    // CONFIG
-    document.getElementById("btn-add-material").addEventListener("click", addMaterial);
-    document.getElementById("btn-save-config").addEventListener("click", saveConfigFromTable);
-
-    // NAV
-    const navBtns = document.querySelectorAll(".nav-btn");
-    for(let n=0;n<navBtns.length;n++){
-      navBtns[n].addEventListener("click", function(){
-        for(let k=0;k<navBtns.length;k++){
-          navBtns[k].classList.remove("active");
-        }
-        this.classList.add("active");
-        const view = this.getAttribute("data-view");
-        const views = document.querySelectorAll(".view");
-        for(let v=0;v<views.length;v++){
-          views[v].style.display = "none";
-        }
-        document.getElementById("view-"+view).style.display = "block";
-
-        if(view==="dashboard") renderDashboard();
-        if(view==="movimientos") renderMovimientosTable();
-        if(view==="solicitudes") renderSolicitudesTable();
-        if(view==="proveedores") renderProveedores();
-        if(view==="config") renderConfigTable();
-      });
-    }
-  }
-
-  // RELOJ
-  function startClock(){
-    const el = document.getElementById("clock");
-    function tick(){
-      const now = new Date();
-      try{
-        el.textContent = now.toLocaleString("es-AR");
-      }catch(e){
-        el.textContent = now.toLocaleString();
+        outputEl.textContent = generatedText;
+        statusEl.textContent = "Listo. Probá el código 😉";
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "Error al conectar con la API (chequeá internet).";
+      } finally {
+        generateBtn.disabled = false;
       }
     }
-    tick();
-    setInterval(tick,1000);
-  }
 
-  // INIT
-  function initApp(){
-    initMaterialSelects();
-    renderConfigTable();
-    recomputeIngresosFromSolicitudes();
-    renderDashboard();
-    renderMovimientosTable();
-    renderSolicitudesTable();
-    renderProveedores();
-
-    const dateInputs = document.querySelectorAll('input[type="date"]');
-    const today = todayIso();
-    for(let i=0;i<dateInputs.length;i++){
-      if(!dateInputs[i].value) dateInputs[i].value = today;
+    async function copyCode() {
+      const text = outputEl.textContent;
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+        statusEl.textContent = "Código copiado al portapapeles ✅";
+      } catch {
+        statusEl.textContent = "No se pudo copiar, pero lo podés seleccionar a mano.";
+      }
     }
 
-    updateAutoStockInicial();
-    startClock();
-    updateSolicitudProveedoresOptions();
+    function downloadCode() {
+      const text = outputEl.textContent;
+      if (!text) return;
+      const blob = new Blob([text], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "codigo_generado.txt";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
 
-    // Traer estado desde Firebase y pisar si hay algo
-    loadStateFromFirestoreAndApply();
-  }
-
-  // ARRANQUE
-  setupLoginUI();
-  setupForms();
-  tryAutoLogin();
-  if(currentUser){
-    initApp();
-  }
-</script>
+    generateBtn.addEventListener("click", generateCode);
+    copyBtn.addEventListener("click", copyCode);
+    downloadBtn.addEventListener("click", downloadCode);
+  </script>
 </body>
 </html>
-
